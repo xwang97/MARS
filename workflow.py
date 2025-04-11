@@ -1,6 +1,41 @@
 from agents import create_author_agent, create_reviewer_agents, create_meta_reviewer_agent
 
 
+def run_detection_pipeline(sentence: str):
+    reviewers = create_reviewer_agents()
+    meta = create_meta_reviewer_agent()
+
+    print("\n[📥 Input Sentence to Detect Hallucination]:")
+    print(sentence)
+
+    # Step 1: Reviewers analyze the sentence
+    review_responses = []
+    for reviewer in reviewers:
+        review_input = (
+            f"You are a hallucination reviewer.\n"
+            f"Analyze the following sentence:\n\n"
+            f"{sentence}\n\n"
+            f"Does it contain hallucinated or factually incorrect content? "
+            f"Explain your reasoning."
+        )
+        review = reviewer.run(review_input)
+        review_responses.append(review)
+        print(f"\n--- {reviewer.name} Review ---\n{review}")
+
+    # Step 2: Meta-reviewer aggregates opinions
+    combined_reviews = "\n\n".join(
+        [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
+    )
+    meta_input = (
+        f"You are a meta-reviewer. Based on the reviews below, determine whether the sentence is hallucinated "
+        f"and summarize the reasoning:\n\n"
+        f"Sentence:\n{sentence}\n\n"
+        f"Reviews:\n{combined_reviews}"
+    )
+    final_decision = meta.run(meta_input)
+    print("\n=== 🧠 Meta-Reviewer Final Judgment ===\n", final_decision)
+
+
 def run_review_pipeline(user_query: str):
     author = create_author_agent()
     reviewers = create_reviewer_agents()
