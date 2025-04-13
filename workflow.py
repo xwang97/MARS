@@ -1,37 +1,78 @@
 from agents import create_author_agent, create_reviewer_agents, create_meta_reviewer_agent
 
 
-def run_detection_pipeline(sentence: str):
+def run_detection_pipeline(sentence: str, passage: str):
     reviewers = create_reviewer_agents()
     meta = create_meta_reviewer_agent()
 
-    print("\n[📥 Input Sentence to Detect Hallucination]:")
+    print("\n[📥 Sentence for Evaluation]:")
     print(sentence)
+    print("\n[📘 Supporting Passage Context]:")
+    print(passage)
 
-    # Step 1: Reviewers analyze the sentence
+    # Step 1: Reviewers analyze the sentence with passage context
     review_responses = []
     for reviewer in reviewers:
         review_input = (
-            f"You are a hallucination reviewer.\n"
-            f"Analyze the following sentence:\n\n"
+            "You are a hallucination reviewer.\n"
+            "Your task is to determine whether the following sentence is factual, based on two criteria:\n"
+            "1. Consistency with the passage (used for context and reference resolution)\n"
+            "2. Consistency with known facts (general world knowledge)\n\n"
+            "The sentence originates from the passage, so you may use it for interpreting ambiguous terms or pronouns. "
+            "However, the passage itself may not be factually correct. You must also judge whether the sentence introduces "
+            "false or fabricated information based on what is widely known or accepted as true.\n\n"
+            "Your output must follow this structure exactly:\n\n"
+            "Decision: [factual | non-factual]\n"
+            "Confidence: [1-5]\n"
+            "Reasons:\n"
+            "- Reason 1\n"
+            "- Reason 2 (optional)\n"
+            "- Reason 3 (optional)\n\n"
+            "📘 Passage:\n"
+            f"{passage}\n\n"
+            "📥 Sentence:\n"
             f"{sentence}\n\n"
-            f"Does it contain hallucinated or factually incorrect content? "
-            f"Explain your reasoning."
+            "Make your classification and explain your reasoning."
         )
+
         review = reviewer.run(review_input)
         review_responses.append(review)
         print(f"\n--- {reviewer.name} Review ---\n{review}")
 
-    # Step 2: Meta-reviewer aggregates opinions
+    # Step 2: Meta-reviewer synthesizes and decides
     combined_reviews = "\n\n".join(
         [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
     )
     meta_input = (
-        f"You are a meta-reviewer. Based on the reviews below, determine whether the sentence is hallucinated "
-        f"and summarize the reasoning:\n\n"
-        f"Sentence:\n{sentence}\n\n"
-        f"Reviews:\n{combined_reviews}"
+        "You are a meta-reviewer. Your task is to determine whether a sentence is hallucinated, based on two sources:\n"
+        "1. The reviews from multiple agents (which include their decision, confidence, and reasoning)\n"
+        "2. Your own general world knowledge and critical judgment\n\n"
+        "Some reviewers may use web search to support their reasoning. "
+        "You should trust well-sourced search-backed justifications over unsupported guesses or vague reasoning. "
+        "If reviewers cite external evidence, weigh that highly in your final judgment.\n"
+        "The sentence originates from the passage and may be interpreted using it (e.g., for resolving references). "
+        "However, the passage itself is not guaranteed to be true. You must also consider whether the sentence presents "
+        "fabricated or incorrect information based on general known facts.\n\n"
+        "Each review includes:\n"
+        "- A decision: factual or non-factual\n"
+        "- A confidence score (1-5)\n"
+        "- 1–3 reasons\n\n"
+        "Your output must follow this structure exactly:\n\n"
+        "Decision: [factual | non-factual]\n"
+        "Confidence: [1–5]\n"
+        "Justification:\n"
+        "- Reason 1\n"
+        "- Reason 2 (optional)\n"
+        "- Reason 3 (optional)\n\n"
+        "📘 Passage:\n"
+        f"{passage}\n\n"
+        "📥 Sentence:\n"
+        f"{sentence}\n\n"
+        "--- Reviewer Feedback ---\n"
+        f"{combined_reviews}\n\n"
+        "📢 Provide your final classification using the structure above. Be concise, clear, and well-justified."
     )
+
     final_decision = meta.run(meta_input)
     print("\n=== 🧠 Meta-Reviewer Final Judgment ===\n", final_decision)
 
