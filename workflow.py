@@ -2,8 +2,8 @@ from agents import create_author_agent, create_reviewer_agents, create_meta_revi
 
 
 def run_detection_pipeline(sentence: str, passage: str):
-    reviewers = create_reviewer_agents()
-    meta = create_meta_reviewer_agent()
+    reviewers = create_reviewer_agents(agent_type="toolcall")
+    meta = create_meta_reviewer_agent(agent_type="toolcall")
 
     print("\n[📥 Sentence for Evaluation]:")
     print(sentence)
@@ -15,12 +15,12 @@ def run_detection_pipeline(sentence: str, passage: str):
     for reviewer in reviewers:
         review_input = (
             "You are a hallucination reviewer.\n"
-            "Your task is to determine whether the following sentence is factual, based on two criteria:\n"
-            "1. Consistency with the passage (used for context and reference resolution)\n"
-            "2. Consistency with known facts (general world knowledge)\n\n"
+            "Your task is to determine whether the following sentence is factual, based on the following criteria:\n"
+            "Consistency with known facts (general world knowledge), do not always rely on what you already know, "
+            "remember you can use available tools to search.\n\n"
             "The sentence originates from the passage, so you may use it for interpreting ambiguous terms or pronouns. "
-            "However, the passage itself may not be factually correct. You must also judge whether the sentence introduces "
-            "false or fabricated information based on what is widely known or accepted as true.\n\n"
+            "However, the passage itself may not be factually correct. You must not conclude the sentence is true because"
+            "it is consistent with the passage.\n\n"
             "Your output must follow this structure exactly:\n\n"
             "Decision: [factual | non-factual]\n"
             "Confidence: [1-5]\n"
