@@ -2,8 +2,10 @@ from agents import create_author_agent, create_reviewer_agents, create_meta_revi
 
 
 def run_detection_pipeline(sentence: str, passage: str):
-    reviewers = create_reviewer_agents(agent_type="toolcall")
-    meta = create_meta_reviewer_agent(agent_type="toolcall")
+    # reviewers = create_reviewer_agents(agent_type="toolcall")
+    # meta = create_meta_reviewer_agent(agent_type="toolcall")
+    reviewers = create_reviewer_agents()
+    meta = create_meta_reviewer_agent()
 
     print("\n[📥 Sentence for Evaluation]:")
     print(sentence)
@@ -15,12 +17,13 @@ def run_detection_pipeline(sentence: str, passage: str):
     for reviewer in reviewers:
         review_input = (
             "You are a hallucination reviewer.\n"
-            "Your task is to determine whether the following sentence is factual, based on the following criteria:\n"
-            "Consistency with known facts (general world knowledge), do not always rely on what you already know, "
-            "remember you can use available tools to search.\n\n"
-            "The sentence originates from the passage, so you may use it for interpreting ambiguous terms or pronouns. "
-            "However, the passage itself may not be factually correct. You must not conclude the sentence is true because"
-            "it is consistent with the passage.\n\n"
+            "Your task is to determine whether the following sentence is factual. You can only answer factual if it meets all of these criteria: \n"
+            "1. Consistent with known facts (general world knowledge).\n"
+            "2. Consistent with the passage.\n\n"
+            "Always keep these things in mind: \n"
+            "1. Remember to start by using web_search tool to search on the internet.\n"
+            "2. You can only use the passage for interpreting ambiguous terms or pronouns. The passage itself may not be factually correct. " 
+            "You must not conclude the sentence is true because it is consistent with the passage.\n\n"
             "Your output must follow this structure exactly:\n\n"
             "Decision: [factual | non-factual]\n"
             "Confidence: [1-5]\n"
@@ -32,7 +35,7 @@ def run_detection_pipeline(sentence: str, passage: str):
             f"{passage}\n\n"
             "📥 Sentence:\n"
             f"{sentence}\n\n"
-            "Make your classification and explain your reasoning."
+            "Remeber the decision must be non-factual if any one of the criteria is violated. Now make your classification and explain your reasoning following the structure above."
         )
 
         review = reviewer.run(review_input)
@@ -75,6 +78,7 @@ def run_detection_pipeline(sentence: str, passage: str):
 
     final_decision = meta.run(meta_input)
     print("\n=== 🧠 Meta-Reviewer Final Judgment ===\n", final_decision)
+    return final_decision
 
 
 def run_review_pipeline(user_query: str):
