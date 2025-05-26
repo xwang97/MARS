@@ -1,7 +1,8 @@
-from workflow import run_detection_pipeline
-from utils import extract_decision_label
+from workflow import run_detection_pipeline, run_simple_math_pipeline, run_gsm_pipeline
+from utils import extract_decision_label, read_jsonl, is_correct, extract_answer
 from tqdm import tqdm
 import datasets
+import numpy as np
 
 
 def eval_selfcheck(data):
@@ -36,7 +37,50 @@ def eval_selfcheck(data):
                 raise ValueError("Invalid annotation")
             true_labels.append(label)
             # run the detection pipeline
-            final_decision = run_detection_pipeline(sentence, passage)
+            final_decision = run_detection_pipeline(sentence, concept)
             pred = extract_decision_label(final_decision)
             pred_labels.append(pred)
     return true_labels, pred_labels
+
+
+def eval_simple_math(n_problems=10):
+    """
+    Generate random simple math problems and evaluate the performance.
+    """
+    np.random.seed(0)
+    scores = []
+    for _ in tqdm(range(n_problems)):
+        a, b, c, d, e, f = np.random.randint(0, 30, size=6)
+        answer = a + b * c + d - e * f
+        query = f"{a}+{b}*{c}+{d}-{e}*{f}"
+        print(query, answer)
+        author_answer = run_simple_math_pipeline(query)
+        if float(author_answer) == answer:
+            scores.append(1)
+        else:
+            scores.append(0)
+    return sum(scores)
+
+
+def eval_gsm(n_problems=1):
+    """
+    Randomly fetch n_problems GSM samples and evaluate.
+    """
+    gsm = read_jsonl('data/GSM/test.jsonl')
+    scores = []
+    for i in tqdm(range(n_problems)):
+        question = gsm[i]["question"]
+        gt_answer = gsm[i]["answer"]
+        print("question: ", question)
+        print("gt_answer: ", gt_answer)
+        print("===================")
+        answer = extract_answer(gt_answer)
+        pred_answer = run_gsm_pipeline(question)
+        print(pred_answer)
+        pred_answer = extract_answer(pred_answer)
+        print(answer, pred_answer)
+        if float(pred_answer) == float(answer):
+            scores.append(1)
+        else:
+            scores.append(0)
+    return sum(scores)

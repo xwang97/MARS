@@ -1,0 +1,3 @@
+smolagents
+smolagents[openai]
+duckduckgo-search

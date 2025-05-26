@@ -1,7 +1,8 @@
 from agents import create_author_agent, create_reviewer_agents, create_meta_reviewer_agent
+from utils import extract_simple_math_decision, parse_simple_math_answer, extract_answer
 
 
-def run_detection_pipeline(sentence: str, passage: str):
+def run_detection_pipeline(sentence: str, concept: str):
     # reviewers = create_reviewer_agents(agent_type="toolcall")
     # meta = create_meta_reviewer_agent(agent_type="toolcall")
     reviewers = create_reviewer_agents()
@@ -9,33 +10,32 @@ def run_detection_pipeline(sentence: str, passage: str):
 
     print("\n[📥 Sentence for Evaluation]:")
     print(sentence)
-    print("\n[📘 Supporting Passage Context]:")
-    print(passage)
+    print("\n[📘 Context concept]:")
+    print(concept)
 
     # Step 1: Reviewers analyze the sentence with passage context
     review_responses = []
     for reviewer in reviewers:
         review_input = (
             "You are a hallucination reviewer.\n"
-            "Your task is to determine whether the following sentence is factual. You can only answer factual if it meets all of these criteria: \n"
-            "1. Consistent with known facts (general world knowledge).\n"
-            "2. Consistent with the passage.\n\n"
+            "Your task is to determine whether the following sentence about the given concept is factual.\n"
+            "📘 Concept:\n"
+            f"{concept}\n\n"
+            "📥 Sentence:\n"
+            f"{sentence}\n\n"
+            "You can only answer factual if it meets all of these criteria: \n"
+            "1. Consistent with known facts (e.g., time, places, and other well-known facts on the web).\n"
+            "2. Related to the given concept.\n\n"
             "Always keep these things in mind: \n"
             "1. Remember to start by using web_search tool to search on the internet.\n"
-            "2. You can only use the passage for interpreting ambiguous terms or pronouns. The passage itself may not be factually correct. " 
-            "You must not conclude the sentence is true because it is consistent with the passage.\n\n"
-            "Your output must follow this structure exactly:\n\n"
+            "2. Your output must follow this structure exactly:\n\n"
             "Decision: [factual | non-factual]\n"
             "Confidence: [1-5]\n"
             "Reasons:\n"
             "- Reason 1\n"
             "- Reason 2 (optional)\n"
             "- Reason 3 (optional)\n\n"
-            "📘 Passage:\n"
-            f"{passage}\n\n"
-            "📥 Sentence:\n"
-            f"{sentence}\n\n"
-            "Remeber the decision must be non-factual if any one of the criteria is violated. Now make your classification and explain your reasoning following the structure above."
+            "Remeber the decision must be non-factual if any one of the criteria is violated. Now make your decision and explain your reasoning following the structure above."
         )
 
         review = reviewer.run(review_input)
@@ -47,15 +47,18 @@ def run_detection_pipeline(sentence: str, passage: str):
         [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
     )
     meta_input = (
-        "You are a meta-reviewer. Your task is to determine whether a sentence is hallucinated, based on two sources:\n"
+        "You are a meta-reviewer. Your task is to determine whether the following sentence about the given concept is hallucinated.\n"
+        "📘 Concept:\n"
+        f"{concept}\n\n"
+        "📥 Sentence:\n"
+        f"{sentence}\n\n"
+        "Your conclusion should rely on the following sources:\n"
         "1. The reviews from multiple agents (which include their decision, confidence, and reasoning)\n"
         "2. Your own general world knowledge and critical judgment\n\n"
+        "Important things to keep in mind: \n"
         "Some reviewers may use web search to support their reasoning. "
         "You should trust well-sourced search-backed justifications over unsupported guesses or vague reasoning. "
         "If reviewers cite external evidence, weigh that highly in your final judgment.\n"
-        "The sentence originates from the passage and may be interpreted using it (e.g., for resolving references). "
-        "However, the passage itself is not guaranteed to be true. You must also consider whether the sentence presents "
-        "fabricated or incorrect information based on general known facts.\n\n"
         "Each review includes:\n"
         "- A decision: factual or non-factual\n"
         "- A confidence score (1-5)\n"
@@ -67,10 +70,6 @@ def run_detection_pipeline(sentence: str, passage: str):
         "- Reason 1\n"
         "- Reason 2 (optional)\n"
         "- Reason 3 (optional)\n\n"
-        "📘 Passage:\n"
-        f"{passage}\n\n"
-        "📥 Sentence:\n"
-        f"{sentence}\n\n"
         "--- Reviewer Feedback ---\n"
         f"{combined_reviews}\n\n"
         "📢 Provide your final classification using the structure above. Be concise, clear, and well-justified."
@@ -81,14 +80,14 @@ def run_detection_pipeline(sentence: str, passage: str):
     return final_decision
 
 
-def run_review_pipeline(user_query: str):
+def run_simple_math_pipeline(user_query: str):
     author = create_author_agent()
     reviewers = create_reviewer_agents()
     meta = create_meta_reviewer_agent()
 
     # Step 1: Author answers
     author_input = (
-        f"You are an assistant. Please answer the following question clearly and factually:\n\n{user_query}"
+        f"What is the result of {user_query}? Make sure to state your answer at the end of the response."
     )
     author_response = author.run(author_input)
     print("\n=== Author's Answer ===\n", author_response)
@@ -97,21 +96,123 @@ def run_review_pipeline(user_query: str):
     review_responses = []
     for reviewer in reviewers:
         review_input = (
-            f"You are a reviewer. The author answered this question:\n\n"
+            "You are a reviewer. The author answered this question:\n\n"
             f"Question: {user_query}\n\n"
             f"Answer: {author_response}\n\n"
-            f"Review the answer for hallucinations or inaccuracies."
+            "Review the answer for potential inaccuracies. Give your conclusion and comments with the following format:\n\n"
+            "Decision: [right | wrong]\n"
+            "Confidence: [1–5]\n"
+            "Justification:\n"
+            "- Reason 1\n"
+            "- Reason 2 (optional)\n"
+            "- Reason 3 (optional)\n\n"
         )
         review = reviewer.run(review_input)
         review_responses.append(review)
         print(f"\n--- {reviewer.name} Review ---\n{review}")
 
     # Step 3: Meta-review
-    meta_input = (
-        f"You are the meta-reviewer. The author answered:\n\n{author_response}\n\n"
-        f"Reviews:\n" + "\n\n".join(
-            [f"{r.name}:\n{r.run(f'Review of {author_response}')}" for r in reviewers]
-        ) + "\n\nMake a final judgment: is the author's answer trustworthy?"
+    combined_reviews = "\n\n".join(
+        [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
     )
-    final_decision = meta.run(meta_input)
-    print("\n=== Meta-Reviewer Final Decision ===\n", final_decision)
+    meta_input = (
+        "You are the meta-reviewer. The author answered this question:\n\n"
+        f"Question: {user_query}\n\n"
+        f"Answer: {author_response}\n\n"
+        "You should decide whether the answer is correct based on both you own knowledge and the reviewers' comments."
+        "--- Reviewer Feedback ---\n"
+        f"{combined_reviews}\n\n"
+        "Give you conclusion and comments with the following format:\n\n"
+        "Decision: [right | wrong]\n"
+        "Justification:\n"
+        "- Reason 1\n"
+        "- Reason 2 (optional)\n"
+        "- Reason 3 (optional)\n\n"
+    )
+    meta_decision = meta.run(meta_input)
+    print("\n=== Meta-Reviewer Final Decision ===\n", meta_decision)
+
+    # Step 4: Send feedback or return final answer
+    decision = extract_simple_math_decision(meta_decision)
+    answer = parse_simple_math_answer(f"{author_response}")
+    if decision == "wrong" or decision == "Wrong":
+        feedback_input = (
+            f"Your answer of {user_query} is {answer}. However, the meta-reviewer said it's wrong.\n\n"
+            "Please look at the following comments and try to update you answer.\n\n"
+            f"{meta_decision}\n\n."
+            "Make sure to state your new answer at the end."
+        )
+        author_rebuttal = author.run(feedback_input)
+        print("\n=== Author's new answer ===\n", author_rebuttal)
+        updated_answer = parse_simple_math_answer(author_rebuttal)
+        return updated_answer
+    return answer
+
+
+def run_gsm_pipeline(user_query):
+    author = create_author_agent()
+    reviewers = create_reviewer_agents()
+    meta = create_meta_reviewer_agent()
+    
+    # Step 1: Author answers
+    author_input = (
+        f"Can you solve the following math problem? {user_query} Give your reasoning process and final answer in the following format:\n"
+        "Thoughts: [your step-by-step reasoning process]\n"
+        "#### [the final numerical answer]"
+    )
+    author_response = author.run(author_input)
+    print("\n=== Author's Answer ===\n", author_response)
+
+    # Step 2: Reviewers critique
+    review_responses = []
+    for reviewer in reviewers:
+        review_input = (
+            "You are a reviewer. The author answered this question:\n\n"
+            f"Question: {user_query}\n\n"
+            f"Answer: {author_response}\n\n"
+            "Review the answer for potential inaccuracies. Give your conclusion and comments with the following format:\n\n"
+            "Decision: [right | wrong]\n"
+            "Confidence: [1–5]\n"
+            "Justification:\n"
+            "- Reason 1\n"
+            "- Reason 2 (optional)\n"
+            "- Reason 3 (optional)\n\n"
+        )
+        review = reviewer.run(review_input)
+        review_responses.append(review)
+        print(f"\n--- {reviewer.name} Review ---\n{review}")
+
+    # Step 3: Meta-review
+    combined_reviews = "\n\n".join(
+        [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
+    )
+    meta_input = (
+        "You are the meta-reviewer. The author answered this question:\n\n"
+        f"Question: {user_query}\n\n"
+        f"Answer: {author_response}\n\n"
+        "You should decide whether the answer is correct based on both you own knowledge and the reviewers' comments."
+        "--- Reviewer Feedback ---\n"
+        f"{combined_reviews}\n\n"
+        "Give you conclusion and comments with the following format:\n\n"
+        "Decision: [right | wrong]\n"
+        "Justification:\n"
+        "- Reason 1\n"
+        "- Reason 2 (optional)\n"
+        "- Reason 3 (optional)\n\n"
+    )
+    meta_decision = meta.run(meta_input)
+    print("\n=== Meta-Reviewer Final Decision ===\n", meta_decision)
+
+    # Step 4: Send feedback or return final answer
+    decision = extract_simple_math_decision(meta_decision)
+    if decision == "wrong" or decision == "Wrong":
+        feedback_input = (
+            f"Your answer of {user_query} is {author_response}. However, the meta-reviewer said it's wrong.\n\n"
+            "Please look at the following comments and try to update you answer.\n\n"
+            f"{meta_decision}\n\n."
+            "Make sure to state your new answer at the end."
+        )
+        author_rebuttal = author.run(feedback_input)
+        print("\n=== Author's new answer ===\n", author_rebuttal)
+        return author_rebuttal
+    return author_response

@@ -1,11 +1,11 @@
-from smolagents import CodeAgent, ToolCallingAgent, HfApiModel, DuckDuckGoSearchTool, VisitWebpageTool
-from custom_models import build_sagemaker_model
+from smolagents import CodeAgent, ToolCallingAgent, OpenAIServerModel, DuckDuckGoSearchTool, VisitWebpageTool
 from typing import List
 import random
+from utils import get_openai_api_key
 
 
 # Adjust the logging level for smolagents
-verbosity = 1
+verbosity = -1
 
 ###############################################################################
 # Uncomment this part if you want to use HuggingFace API for backend models
@@ -27,16 +27,13 @@ verbosity = 1
 ###############################################################################
 
 # ========== LLM Setup ================
-endpoint_name1 = "jumpstart-dft-llama-3-1-8b-instruct-20250506-154935"
-# endpoint_name2 = "jumpstart-dft-llama-codellama-7b-in-20250506-202728"
-# endpoint_name3 = Qwen Coder 7B
-# endpoint_name4 = DeepSeek distill or GPT
-author_llm = build_sagemaker_model(endpoint_name1)
+openai_api_key = get_openai_api_key("../openai_api_key_4_XiaoWang.txt")
+gpt_4o_mini = OpenAIServerModel(model_id="gpt-3.5-turbo", api_base="https://api.openai.com/v1", api_key=openai_api_key)
+author_llm = gpt_4o_mini
 reviewer_llms = [
-    build_sagemaker_model(endpoint_name1),
-    # build_sagemaker_model(endpoint_name2)
+    gpt_4o_mini
 ]
-meta_llm = build_sagemaker_model(endpoint_name1)
+meta_llm = gpt_4o_mini
 
 reviewer_styles = [
     "Be conservative. Flag anything you're unsure about. Avoid giving the benefit of the doubt.",
@@ -84,17 +81,17 @@ def create_reviewer_agents(num_reviewers: int = 3, agent_type="code"):
             reviewer = CodeAgent(
                 name=f"Reviewer_{i+1}",
                 model=llm,
-                tools=[web_search, visit_webpage],
+                tools=[],
                 verbosity_level=verbosity,
-                max_steps=5,
+                max_steps=3,
             )
         else:
             reviewer = ToolCallingAgent(
                 name=f"Reviewer_{i+1}",
                 model=llm,
-                tools=[web_search, visit_webpage],
+                tools=[],
                 verbosity_level=verbosity,
-                max_steps=5,
+                max_steps=3,
             )
         reviewer.style_prompt = style  # Attach for reference/logging
         reviewers.append(reviewer)
@@ -108,7 +105,7 @@ def create_meta_reviewer_agent(agent_type="code") -> CodeAgent:
             model=meta_llm,
             tools=[],
             verbosity_level=verbosity,
-            max_steps=5,
+            max_steps=3,
         )
     else:
         return ToolCallingAgent(
@@ -116,5 +113,5 @@ def create_meta_reviewer_agent(agent_type="code") -> CodeAgent:
             model=meta_llm,
             tools=[],
             verbosity_level=verbosity,
-            max_steps=5,
+            max_steps=3,
         )
