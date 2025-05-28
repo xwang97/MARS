@@ -58,7 +58,7 @@ def create_author_agent(agent_type="code"):
             model=author_llm,
             tools=[],  # Future: Insert tool functions here
             verbosity_level=verbosity,
-            max_steps=5,
+            max_steps=3,
         )
     else:
         return ToolCallingAgent(
@@ -66,7 +66,7 @@ def create_author_agent(agent_type="code"):
             model=author_llm,
             tools=[],  # Future: Insert tool functions here
             verbosity_level=verbosity,
-            max_steps=5,
+            max_steps=3,
         )
 
 

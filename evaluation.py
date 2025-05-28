@@ -1,5 +1,5 @@
 from workflow import run_detection_pipeline, run_simple_math_pipeline, run_gsm_pipeline
-from utils import extract_decision_label, read_jsonl, is_correct, extract_answer
+from utils import extract_decision_label, read_jsonl, extract_answer, extract_pred_answer
 from tqdm import tqdm
 import datasets
 import numpy as np
@@ -62,25 +62,52 @@ def eval_simple_math(n_problems=10):
     return sum(scores)
 
 
-def eval_gsm(n_problems=1):
+def eval_gsm(n_problems=5, selected=False):
     """
     Randomly fetch n_problems GSM samples and evaluate.
     """
     gsm = read_jsonl('data/GSM/test.jsonl')
     scores = []
-    for i in tqdm(range(n_problems)):
+    hard_collections = []  # record the incorrectly answered questions
+    rectified_collections = []  # record initially wrong but rectified by reviewers questions
+    if selected:
+        question_list = list(np.loadtxt("data/GSM/hard.txt").astype(int))
+    else:
+        question_list = list(range(n_problems))
+    for i in tqdm(question_list):
         question = gsm[i]["question"]
         gt_answer = gsm[i]["answer"]
         print("question: ", question)
         print("gt_answer: ", gt_answer)
         print("===================")
         answer = extract_answer(gt_answer)
-        pred_answer = run_gsm_pipeline(question)
-        print(pred_answer)
-        pred_answer = extract_answer(pred_answer)
-        print(answer, pred_answer)
-        if float(pred_answer) == float(answer):
-            scores.append(1)
+        response = run_gsm_pipeline(question)
+        if not isinstance(response, list):
+            pred_answer = extract_pred_answer(response)
+            print("GT answer and predicted answer: ", answer, pred_answer)
+            print("\n")
+            if float(pred_answer) == float(answer):
+                scores.append(1)
+            else:
+                scores.append(0)
+                hard_collections.append(i)
         else:
-            scores.append(0)
-    return sum(scores)
+            initial_answer = extract_pred_answer(response[0])
+            updated_answer = extract_pred_answer(response[1])
+            print("GT answer, initial answer, final answer: ", answer, initial_answer, updated_answer)
+            print("\n")
+            if float(updated_answer) == float(answer):
+                scores.append(1)
+                if float(initial_answer) != float(answer):
+                    rectified_collections.append(i)
+                    hard_collections.append(i)
+            else:
+                scores.append(0)
+                hard_collections.append(i)
+    return sum(scores), hard_collections, rectified_collections
+
+# !!! Update plan
+# 0. Record and save the answer update process of the successfully recitified questions.
+# 1. Write a reviewer tool to check whether the author's thought is consistent with the question.
+# 2. Often fail when there are large numbers, maybe we can write some tools
+# 3. Test other tasks.
