@@ -58,7 +58,7 @@ def create_author_agent(agent_type="code"):
             model=author_llm,
             tools=[],  # Future: Insert tool functions here
             verbosity_level=verbosity,
-            max_steps=3,
+            max_steps=1,
         )
     else:
         return ToolCallingAgent(
@@ -66,7 +66,7 @@ def create_author_agent(agent_type="code"):
             model=author_llm,
             tools=[],  # Future: Insert tool functions here
             verbosity_level=verbosity,
-            max_steps=3,
+            max_steps=1,
         )
 
 
@@ -83,7 +83,7 @@ def create_reviewer_agents(num_reviewers: int = 3, agent_type="code"):
                 model=llm,
                 tools=[],
                 verbosity_level=verbosity,
-                max_steps=3,
+                max_steps=1,
             )
         else:
             reviewer = ToolCallingAgent(
@@ -91,7 +91,7 @@ def create_reviewer_agents(num_reviewers: int = 3, agent_type="code"):
                 model=llm,
                 tools=[],
                 verbosity_level=verbosity,
-                max_steps=3,
+                max_steps=1,
             )
         reviewer.style_prompt = style  # Attach for reference/logging
         reviewers.append(reviewer)
@@ -105,7 +105,7 @@ def create_meta_reviewer_agent(agent_type="code") -> CodeAgent:
             model=meta_llm,
             tools=[],
             verbosity_level=verbosity,
-            max_steps=3,
+            max_steps=1,
         )
     else:
         return ToolCallingAgent(
@@ -113,5 +113,5 @@ def create_meta_reviewer_agent(agent_type="code") -> CodeAgent:
             model=meta_llm,
             tools=[],
             verbosity_level=verbosity,
-            max_steps=3,
+            max_steps=1,
         )

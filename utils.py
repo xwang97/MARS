@@ -6,6 +6,18 @@ import json
 ###################################################
 # 0. General usage
 ###################################################
+def read_jsonl(path: str):
+    with open(path) as fh:
+        return [json.loads(line) for line in fh.readlines() if line]
+
+
+def save_jsonl(samples, save_name):
+    with open(save_name, "w", encoding="utf-8") as f:
+        for item in samples:
+            json.dump(item, f)
+            f.write("\n")
+
+
 def get_openai_api_key(filename):
     """
     Read OpenAI API key from txt file.
@@ -88,11 +100,6 @@ def parse_simple_math_answer(sentence):
 ###################################################
 # 3. GSM related
 ###################################################
-def read_jsonl(path: str):
-    with open(path) as fh:
-        return [json.loads(line) for line in fh.readlines() if line]
-
-
 def extract_answer(text):
     """
     Extract answer from the GSM sample.

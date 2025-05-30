@@ -1,8 +1,9 @@
 from workflow import run_detection_pipeline, run_simple_math_pipeline, run_gsm_pipeline
-from utils import extract_decision_label, read_jsonl, extract_answer, extract_pred_answer
+from utils import extract_decision_label, read_jsonl, extract_answer, extract_pred_answer, save_jsonl
 from tqdm import tqdm
 import datasets
 import numpy as np
+from datetime import date
 
 
 def eval_selfcheck(data):
@@ -68,6 +69,7 @@ def eval_gsm(n_problems=5, selected=False):
     """
     gsm = read_jsonl('data/GSM/test.jsonl')
     scores = []
+    records = []  # record the full review process of each question
     hard_collections = []  # record the incorrectly answered questions
     rectified_collections = []  # record initially wrong but rectified by reviewers questions
     if selected:
@@ -81,9 +83,9 @@ def eval_gsm(n_problems=5, selected=False):
         print("gt_answer: ", gt_answer)
         print("===================")
         answer = extract_answer(gt_answer)
-        response = run_gsm_pipeline(question)
-        if not isinstance(response, list):
-            pred_answer = extract_pred_answer(response)
+        review_history = run_gsm_pipeline(question)
+        if "author_rebuttal" not in review_history:  # initial answer accepted
+            pred_answer = extract_pred_answer(review_history['author_response'])
             print("GT answer and predicted answer: ", answer, pred_answer)
             print("\n")
             if float(pred_answer) == float(answer):
@@ -92,8 +94,8 @@ def eval_gsm(n_problems=5, selected=False):
                 scores.append(0)
                 hard_collections.append(i)
         else:
-            initial_answer = extract_pred_answer(response[0])
-            updated_answer = extract_pred_answer(response[1])
+            initial_answer = extract_pred_answer(review_history['author_response'])
+            updated_answer = extract_pred_answer(review_history['author_rebuttal'])
             print("GT answer, initial answer, final answer: ", answer, initial_answer, updated_answer)
             print("\n")
             if float(updated_answer) == float(answer):
@@ -104,10 +106,16 @@ def eval_gsm(n_problems=5, selected=False):
             else:
                 scores.append(0)
                 hard_collections.append(i)
+        review_history['id'] = i
+        review_history['score'] = scores[-1]
+        records.append(review_history)
+    # save all the review histories
+    date_str = date.today().isoformat()
+    save_name = f"data/GSM/record_{date_str}.jsonl"
+    save_jsonl(records, save_name)
     return sum(scores), hard_collections, rectified_collections
 
 # !!! Update plan
-# 0. Record and save the answer update process of the successfully recitified questions.
 # 1. Write a reviewer tool to check whether the author's thought is consistent with the question.
 # 2. Often fail when there are large numbers, maybe we can write some tools
 # 3. Test other tasks.

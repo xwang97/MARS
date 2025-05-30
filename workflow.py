@@ -210,6 +210,13 @@ def run_gsm_pipeline(user_query):
     print("\n=== Meta-Reviewer Final Decision ===\n", meta_decision)
     print("\n")
 
+    # Additional step: build a dictionary to save the review process
+    review_history = {
+        "author_response": author_response,
+        "review1": review_responses[0], "review2": review_responses[1], "review3": review_responses[2],
+        "meta_review": meta_decision
+    }
+
     # Step 4: Send feedback or return final answer
     decision = extract_math_decision(meta_decision)
     author_answer = extract_pred_answer(author_response)
@@ -225,5 +232,5 @@ def run_gsm_pipeline(user_query):
         )
         author_rebuttal = author.run(feedback_input)
         print("\n=== Author's new answer ===\n", author_rebuttal)
-        return [author_response, author_rebuttal]
-    return author_response
+        review_history['author_rebuttal'] = author_rebuttal
+    return review_history
