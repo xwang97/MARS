@@ -158,10 +158,10 @@ def run_gsm_pipeline(user_query):
     author_input = (
         "You are a math assistant. Please help to solve the following math problem:\n"
         f"{user_query}\n\n"
-        "Give your computation steps in the following format:\n"
-        "Thoughts: [your step-by-step computation process]\n"
-        "Your final answer should be a single numerical number, in the form"
-        "Answer: [the final numerical answer], at the end of your response.\n\n"
+        "Give your thoughts about the computation steps and the final numerical answer in the following format:\n"
+        "Thoughts: [your step-by-step computation process with immediate results]\n"
+        "Answer: [the final numerical answer]\n\n"
+        "Your final answer must be a single numerical number at the end of the response, without units or symbols.\n\n"
     )
     author_response = author.run(author_input)
     print("\n=== Author's Answer ===\n", author_response)
@@ -169,18 +169,45 @@ def run_gsm_pipeline(user_query):
     # Step 2: Reviewers critique
     review_responses = []
     for reviewer in reviewers:
+        # review_input = (
+        #     "You are a reviewer. The author has submitted the following answer to a math problem:\n\n"
+        #     f"Question: {user_query}\n\n"
+        #     f"Answer: {author_response}\n\n"
+        #     "Review the answer for potential inaccuracies. Give your decision and comments with the following format:\n\n"
+        #     "Decision: [right | wrong]\n"
+        #     "Confidence: [1–5]\n"
+        #     "Justification:\n"
+        #     "- Mistake 1\n"
+        #     "- Mistake 2 (optional)\n"
+        #     "- Mistake 3 (optional)\n"
+        #     ""
+        #     "If the decision is wrong, your justification should point out mistakes in the author's thoughts.\n\n"
+        # )
         review_input = (
-            "You are a reviewer. The author answered this question:\n\n"
+            "You are a reviewer. The author has submitted the following answer to a math problem:\n\n"
             f"Question: {user_query}\n\n"
             f"Answer: {author_response}\n\n"
-            "Review the answer for potential inaccuracies. Give your decision and comments with the following format:\n\n"
-            "Decision: [right | wrong]\n"
-            "Confidence: [1–5]\n"
-            "Justification:\n"
-            "- Reason 1\n"
-            "- Reason 2 (optional)\n"
-            "- Reason 3 (optional)\n"
-            "If the decision is wrong, your justification should point out mistakes in the author's thoughts.\n\n"
+            "Please evaluate the correctness of the author's response. Follow the instructions and format strictly:\n\n"
+            "---\n\n"
+            "Your output format must be:\n\n"
+            "Decision: [right | wrong]  \n"
+            "Confidence: [1–5] (5 = highest confidence)  \n"
+            "Justification:  \n"
+            "- Mistake 1  \n"
+            "- Mistake 2 (optional)  \n"
+            "- Mistake 3 (optional)  \n"
+            "---\n\n"
+            "Evaluation criteria:\n\n"
+            "1. **Answer Format**: The final answer must be a single numerical value (e.g., `Answer: 16`).  \n"
+            "2. **Consistency**: Check whether each step in the author's thoughts is consistent with the original problem.\n"
+            "3. **Accuracy**: Check whether each computation gets the correct result.\n"
+            "---\n\n"
+            "Example:\n"
+            "Decision: wrong  \n"
+            "Confidence: 3  \n"
+            "Justification:  \n"
+            "- Mistake 1: The author did not include a final line in the format `Answer: [number]`. Please revise to match the required output format.  \n"
+            "- Mistake 2: Step 2 in the author's thoughts is inconsistent with the problem description.\n"
         )
         review = reviewer.run(review_input)
         review_responses.append(review)
@@ -191,20 +218,21 @@ def run_gsm_pipeline(user_query):
         [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
     )
     meta_input = (
-        "You are the meta-reviewer. The author answered this question:\n\n"
+        "You are the meta-reviewer. The author has submitted an answer to a math problem.\n\n"
         f"Question: {user_query}\n\n"
         f"Answer: {author_response}\n\n"
-        "You should decide whether the answer is correct based on both you own knowledge and the reviewers' comments.\n"
+        "You must decide whether the answer is correct based on:\n"
+        "1. Your own mathematical knowledge\n"
+        "2. The reviewers' comments provided below\n\n"
         "--- Reviewer Feedback ---\n"
         f"{combined_reviews}\n\n"
-        "Give you conclusion and comments with the following format."
-        "If the decision is wrong, you must tell which step is wrong and give your suggestions.\n\n"
+        "Provide your conclusion in the following format. If the decision is 'wrong', you must identify the specific flawed step(s) and give clear, constructive suggestions for revision.\n\n"
         "Decision: [right | wrong]\n"
         "Justification:\n"
         "- Reason 1\n"
         "- Reason 2 (optional)\n"
         "- Reason 3 (optional)\n"
-        "Suggestions: [your suggestions for updating the answer]\n\n"
+        "Suggestions: [your suggestions for updating the answer]\n"
     )
     meta_decision = meta.run(meta_input)
     print("\n=== Meta-Reviewer Final Decision ===\n", meta_decision)
@@ -222,13 +250,16 @@ def run_gsm_pipeline(user_query):
     author_answer = extract_pred_answer(author_response)
     if decision == "wrong" or decision == "Wrong":
         feedback_input = (
-            f"Your answer of {user_query} is {author_answer}. However, the meta-reviewer said it's wrong.\n\n"
-            "You must consider the meta-reviewer's suggested answer seriously and try to update you answer.\n\n"
+            "Your answer to the following question was reviewed and marked as incorrect by the meta-reviewer.\n\n"
+            f"Question: {user_query}\n\n"
+            f"Your original answer: {author_answer}\n\n"
+            "The meta-reviewer has provided the following feedback:\n\n"
             f"{meta_decision}\n\n."
+            "You must consider the meta-reviewer's suggestions seriously and revise your answer accordingly.\n\n"
             "Make sure to state your thoughts and new answer with this format:\n"
             "Thoughts: [your step-by-step computation process]\n"
             "Answer: [the final numerical answer]\n"
-            "Your final answer should be a single numerical number at the end of your response.\n\n"
+            "Your final answer must be a single numerical number at the end of the response, without units or symbols.\n\n"
         )
         author_rebuttal = author.run(feedback_input)
         print("\n=== Author's new answer ===\n", author_rebuttal)

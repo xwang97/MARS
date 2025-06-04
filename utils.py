@@ -45,7 +45,7 @@ def extract_math_decision(text) -> str:
         if match:
             decision = match.group(1)
         else:
-            match = re.search(r"right|wrong", text)
+            match = re.search(r"right|wrong|Right|Wrong", text)
             if match:
                 return match.group(0)
             return "right"
