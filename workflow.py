@@ -1,4 +1,4 @@
-from agents import create_author_agent, create_reviewer_agents, create_meta_reviewer_agent
+from custom_agents import create_author_agent, create_reviewer_agents, create_meta_reviewer_agent
 from utils import extract_math_decision, parse_simple_math_answer, extract_pred_answer
 
 
@@ -161,7 +161,7 @@ def run_gsm_pipeline(user_query):
         "Give your thoughts about the computation steps and the final numerical answer in the following format:\n"
         "Thoughts: [your step-by-step computation process with immediate results]\n"
         "Answer: [the final numerical answer]\n\n"
-        "Your final answer must be a single numerical number at the end of the response, without units or symbols.\n\n"
+        "Your final answer must be a single numerical number at the end of the response.\n\n"
     )
     author_response = author.run(author_input)
     print("\n=== Author's Answer ===\n", author_response)
@@ -198,16 +198,9 @@ def run_gsm_pipeline(user_query):
             "- Mistake 3 (optional)  \n"
             "---\n\n"
             "Evaluation criteria:\n\n"
-            "1. **Answer Format**: The final answer must be a single numerical value (e.g., `Answer: 16`).  \n"
-            "2. **Consistency**: Check whether each step in the author's thoughts is consistent with the original problem.\n"
+            "1. **Answer Format**: Check whether the author's final answer is a single numerical value (e.g., `Answer: 16`).  \n"
+            "2. **Consistency**: Check whether each step in the author's thoughts is consistent with facts in the problem.\n"
             "3. **Accuracy**: Check whether each computation gets the correct result.\n"
-            "---\n\n"
-            "Example:\n"
-            "Decision: wrong  \n"
-            "Confidence: 3  \n"
-            "Justification:  \n"
-            "- Mistake 1: The author did not include a final line in the format `Answer: [number]`. Please revise to match the required output format.  \n"
-            "- Mistake 2: Step 2 in the author's thoughts is inconsistent with the problem description.\n"
         )
         review = reviewer.run(review_input)
         review_responses.append(review)
@@ -221,9 +214,7 @@ def run_gsm_pipeline(user_query):
         "You are the meta-reviewer. The author has submitted an answer to a math problem.\n\n"
         f"Question: {user_query}\n\n"
         f"Answer: {author_response}\n\n"
-        "You must decide whether the answer is correct based on:\n"
-        "1. Your own mathematical knowledge\n"
-        "2. The reviewers' comments provided below\n\n"
+        "You must decide whether the answer is correct by summarizing and analyzing the reviewers' comments below:\n\n"
         "--- Reviewer Feedback ---\n"
         f"{combined_reviews}\n\n"
         "Provide your conclusion in the following format. If the decision is 'wrong', you must identify the specific flawed step(s) and give clear, constructive suggestions for revision.\n\n"
@@ -259,7 +250,7 @@ def run_gsm_pipeline(user_query):
             "Make sure to state your thoughts and new answer with this format:\n"
             "Thoughts: [your step-by-step computation process]\n"
             "Answer: [the final numerical answer]\n"
-            "Your final answer must be a single numerical number at the end of the response, without units or symbols.\n\n"
+            "Your final answer must be a single numerical number at the end of the response.\n\n"
         )
         author_rebuttal = author.run(feedback_input)
         print("\n=== Author's new answer ===\n", author_rebuttal)

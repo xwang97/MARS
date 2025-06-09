@@ -1,3 +1,4 @@
 smolagents
 smolagents[openai]
 duckduckgo-search
+openai

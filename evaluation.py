@@ -4,6 +4,7 @@ from tqdm import tqdm
 import datasets
 import numpy as np
 from datetime import date
+import random
 
 
 def eval_selfcheck(data):
@@ -68,14 +69,17 @@ def eval_gsm(n_problems=5, selected=False):
     Randomly fetch n_problems GSM samples and evaluate.
     """
     gsm = read_jsonl('data/GSM/test.jsonl')
-    scores = []
+    single_agent_scores = []  # scores of single agent
+    multi_agent_scores = []  # scores after multi-agent review
     records = []  # record the full review process of each question
     hard_collections = []  # record the incorrectly answered questions
     rectified_collections = []  # record initially wrong but rectified by reviewers questions
     if selected:
         question_list = list(np.loadtxt("data/GSM/hard.txt").astype(int))
     else:
-        question_list = list(range(n_problems))
+        # question_list = list(range(n_problems))
+        question_list = sorted(random.sample(range(len(gsm)), n_problems))
+        np.savetxt("data/GSM/question_ids.txt", question_list)
     for i in tqdm(question_list):
         question = gsm[i]["question"]
         gt_answer = gsm[i]["answer"]
@@ -89,33 +93,35 @@ def eval_gsm(n_problems=5, selected=False):
             print("GT answer and predicted answer: ", answer, pred_answer)
             print("\n")
             if float(pred_answer) == float(answer):
-                scores.append(1)
+                single_agent_scores.append(1)
+                multi_agent_scores.append(1)
             else:
-                scores.append(0)
+                single_agent_scores.append(0)
+                multi_agent_scores.append(0)
                 hard_collections.append(i)
         else:
             initial_answer = extract_pred_answer(review_history['author_response'])
             updated_answer = extract_pred_answer(review_history['author_rebuttal'])
             print("GT answer, initial answer, final answer: ", answer, initial_answer, updated_answer)
             print("\n")
+            if float(initial_answer) == float(answer):
+                single_agent_scores.append(1)
+            else:
+                single_agent_scores.append(0)
             if float(updated_answer) == float(answer):
-                scores.append(1)
+                multi_agent_scores.append(1)
                 if float(initial_answer) != float(answer):
                     rectified_collections.append(i)
                     hard_collections.append(i)
             else:
-                scores.append(0)
+                multi_agent_scores.append(0)
                 hard_collections.append(i)
         review_history['id'] = i
-        review_history['score'] = scores[-1]
+        review_history['single_score'] = single_agent_scores[-1]
+        review_history['multi_score'] = multi_agent_scores[-1]
         records.append(review_history)
     # save all the review histories
     date_str = date.today().isoformat()
     save_name = f"data/GSM/record_{date_str}.jsonl"
     save_jsonl(records, save_name)
-    return sum(scores), hard_collections, rectified_collections
-
-# !!! Update plan
-# 1. Write a reviewer tool to check whether the author's thought is consistent with the question.
-# 2. Often fail when there are large numbers, maybe we can write some tools
-# 3. Test other tasks.
+    return sum(single_agent_scores), sum(multi_agent_scores), hard_collections, rectified_collections
