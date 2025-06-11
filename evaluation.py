@@ -1,76 +1,20 @@
-from workflow import run_detection_pipeline, run_simple_math_pipeline, run_gsm_pipeline
+from pipelines import run_review_pipeline
 from utils import extract_decision_label, read_jsonl, extract_answer, extract_pred_answer, save_jsonl
 from tqdm import tqdm
-import datasets
 import numpy as np
 from datetime import date
 import random
+import time
 
 
-def eval_selfcheck(data):
-    """
-    Evaluate our framework on the selfcheckGPT dataset.
-    Input:
-        data: the dataset loaded by the get_selfcheck_data function
-    Return:
-        true_labels: the ground truth labels of each sentence
-        pred_labels: the predicted labels of each sentence
-    """
-    wikibio = datasets.load_dataset("wiki_bio", split="test")
-    true_labels = []  # true labels of each sentence
-    pred_labels = []  # predicted labels of each sentence
-    for i in tqdm(range(len(data))):
-        if i == 1: break
-        row = data[i]
-        wiki_id = row["wiki_bio_test_idx"]
-        concept = wikibio[wiki_id]["input_text"]["context"].strip()
-        passage = row["gpt3_text"]
-        for j, sentence in enumerate(row["gpt3_sentences"]):
-            print(j)
-            # define the prompt, response and labels as per the dataset
-            # prompt = f"This is a Wikipedia passage about {concept}:"
-            if row["annotation"][j] == "major_inaccurate":
-                label = 1
-            elif row["annotation"][j] == "minor_inaccurate":
-                label = 0.5
-            elif row["annotation"][j] == "accurate":
-                label = 0
-            else:
-                raise ValueError("Invalid annotation")
-            true_labels.append(label)
-            # run the detection pipeline
-            final_decision = run_detection_pipeline(sentence, concept)
-            pred = extract_decision_label(final_decision)
-            pred_labels.append(pred)
-    return true_labels, pred_labels
-
-
-def eval_simple_math(n_problems=10):
-    """
-    Generate random simple math problems and evaluate the performance.
-    """
-    np.random.seed(0)
-    scores = []
-    for _ in tqdm(range(n_problems)):
-        a, b, c, d, e, f = np.random.randint(0, 30, size=6)
-        answer = a + b * c + d - e * f
-        query = f"{a}+{b}*{c}+{d}-{e}*{f}"
-        print(query, answer)
-        author_answer = run_simple_math_pipeline(query)
-        if float(author_answer) == answer:
-            scores.append(1)
-        else:
-            scores.append(0)
-    return sum(scores)
-
-
-def eval_gsm(n_problems=5, selected=False):
+def eval_gsm(n_problems=5, n_reviewers=3, selected=False, verbosity=0):
     """
     Randomly fetch n_problems GSM samples and evaluate.
     """
     gsm = read_jsonl('data/GSM/test.jsonl')
     single_agent_scores = []  # scores of single agent
     multi_agent_scores = []  # scores after multi-agent review
+    token_usages = []  # total token consumptions of each question
     records = []  # record the full review process of each question
     hard_collections = []  # record the incorrectly answered questions
     rectified_collections = []  # record initially wrong but rectified by reviewers questions
@@ -80,18 +24,21 @@ def eval_gsm(n_problems=5, selected=False):
         # question_list = list(range(n_problems))
         question_list = sorted(random.sample(range(len(gsm)), n_problems))
         np.savetxt("data/GSM/question_ids.txt", question_list)
+    start_time = time.time()
     for i in tqdm(question_list):
         question = gsm[i]["question"]
         gt_answer = gsm[i]["answer"]
-        print("question: ", question)
-        print("gt_answer: ", gt_answer)
-        print("===================")
+        if verbosity:
+            print("question: ", question)
+            print("gt_answer: ", gt_answer)
+            print("===================")
         answer = extract_answer(gt_answer)
-        review_history = run_gsm_pipeline(question)
+        review_history = run_review_pipeline(question, task="gsm", n_reviewers=n_reviewers, verbosity=verbosity)
         if "author_rebuttal" not in review_history:  # initial answer accepted
             pred_answer = extract_pred_answer(review_history['author_response'])
-            print("GT answer and predicted answer: ", answer, pred_answer)
-            print("\n")
+            if verbosity:
+                print("GT answer and predicted answer: ", answer, pred_answer)
+                print("\n")
             if float(pred_answer) == float(answer):
                 single_agent_scores.append(1)
                 multi_agent_scores.append(1)
@@ -102,8 +49,9 @@ def eval_gsm(n_problems=5, selected=False):
         else:
             initial_answer = extract_pred_answer(review_history['author_response'])
             updated_answer = extract_pred_answer(review_history['author_rebuttal'])
-            print("GT answer, initial answer, final answer: ", answer, initial_answer, updated_answer)
-            print("\n")
+            if verbosity:
+                print("GT answer, initial answer, final answer: ", answer, initial_answer, updated_answer)
+                print("\n")
             if float(initial_answer) == float(answer):
                 single_agent_scores.append(1)
             else:
@@ -119,9 +67,12 @@ def eval_gsm(n_problems=5, selected=False):
         review_history['id'] = i
         review_history['single_score'] = single_agent_scores[-1]
         review_history['multi_score'] = multi_agent_scores[-1]
+        token_usages.append(review_history['total_tokens'])
         records.append(review_history)
+    end_time = time.time()
+    avg_time = (end_time - start_time) / len(question_list)
     # save all the review histories
     date_str = date.today().isoformat()
     save_name = f"data/GSM/records/record_{date_str}.jsonl"
     save_jsonl(records, save_name)
-    return sum(single_agent_scores), sum(multi_agent_scores), hard_collections, rectified_collections
+    return sum(single_agent_scores), sum(multi_agent_scores), hard_collections, rectified_collections, np.mean(token_usages), avg_time
