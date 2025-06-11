@@ -1,6 +1,7 @@
 import re
 import datasets
 import json
+from collections import Counter
 
 
 ###################################################
@@ -52,6 +53,16 @@ def extract_math_decision(text) -> str:
     if decision is None:
         decision = "right"
     return decision
+
+
+def most_frequent_element(lst):
+    """
+    Return the most frequent element of a list
+    """
+    if not lst:
+        return None
+    counts = Counter(lst)
+    return counts.most_common(1)[0][0]
 
 
 ###################################################

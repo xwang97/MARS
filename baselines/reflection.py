@@ -60,14 +60,14 @@ def eval_self_reflection_gsm(n_problems=5, selected=True):
         pred_answer = extract_pred_answer(reflection_history['reflection'])
         print("GT answer and predicted answer: ", answer, pred_answer)
         if float(pred_answer) == float(answer):
-            scores.append(1)
+            scores.append(int(1))
         else:
-            scores.append(0)
+            scores.append(int(0))
             hard_collections.append(i)
-        reflection_history['id'] = i
+        reflection_history['id'] = int(i)
         reflection_history['score'] = scores[-1]
         records.append(reflection_history)
     date_str = date.today().isoformat()
-    save_name = f"reflection_logs/gsm_{date_str}.jsonl"
+    save_name = f"baselines/reflection_logs/gsm_{date_str}.jsonl"
     save_jsonl(records, save_name)
     return sum(scores), hard_collections

@@ -122,6 +122,6 @@ def eval_gsm(n_problems=5, selected=False):
         records.append(review_history)
     # save all the review histories
     date_str = date.today().isoformat()
-    save_name = f"data/GSM/record_{date_str}.jsonl"
+    save_name = f"data/GSM/records/record_{date_str}.jsonl"
     save_jsonl(records, save_name)
     return sum(single_agent_scores), sum(multi_agent_scores), hard_collections, rectified_collections

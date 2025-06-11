@@ -243,7 +243,7 @@ def run_gsm_pipeline(user_query):
         feedback_input = (
             "Your answer to the following question was reviewed and marked as incorrect by the meta-reviewer.\n\n"
             f"Question: {user_query}\n\n"
-            f"Your original answer: {author_answer}\n\n"
+            f"Your original answer: {author_response}\n\n"
             "The meta-reviewer has provided the following feedback:\n\n"
             f"{meta_decision}\n\n."
             "You must consider the meta-reviewer's suggestions seriously and revise your answer accordingly.\n\n"

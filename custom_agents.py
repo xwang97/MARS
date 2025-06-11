@@ -9,6 +9,8 @@ class OpenAIAgent:
         self.name = name
         self.model = model
         self.client = OpenAI(api_key=api_key)
+        self.total_tokens = 0
+        self.token_log = []
 
     def run(self, prompt: str | list[dict]) -> str | dict:
         if isinstance(prompt, str):
@@ -42,15 +44,15 @@ class OpenAIAgent:
 
 # ======== LLM Setup ==============
 openai_api_key = get_openai_api_key("../openai_api_key_4_XiaoWang.txt")
-author_llm = "gpt-4o-mini"
-reviewer_llms = ["gpt-4o-mini"]
-meta_llm = "gpt-4o-mini"
+author_llm = "gpt-3.5-turbo"
+reviewer_llms = ["gpt-3.5-turbo"]
+meta_llm = "gpt-3.5-turbo"
 
 
 # ======== Define the review related agents ==================
-def create_author_agent():
+def create_author_agent(name="Author"):
     return OpenAIAgent(
-        name="Author",
+        name=name,
         model=author_llm,
         api_key=openai_api_key
     )
