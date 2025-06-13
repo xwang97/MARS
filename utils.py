@@ -29,32 +29,6 @@ def get_openai_api_key(filename):
     return api_key
 
 
-def extract_math_decision(text) -> str:
-    """
-    Extracts decision of the meta-reviewer for a math problem.
-    """
-    if isinstance(text, dict):
-        if "Decision" in text.keys():
-            decision = text['Decision']
-        elif "decision" in text.keys():
-            decision = text['decision']
-        else:
-            decision = None
-    else:
-        text = str(text)
-        match = re.search(r'Decision:\s*(\w+[-]?\w*)', text)
-        if match:
-            decision = match.group(1)
-        else:
-            match = re.search(r"right|wrong|Right|Wrong", text)
-            if match:
-                return match.group(0)
-            return "right"
-    if decision is None:
-        decision = "right"
-    return decision
-
-
 def most_frequent_element(lst):
     """
     Return the most frequent element of a list
@@ -63,6 +37,15 @@ def most_frequent_element(lst):
         return None
     counts = Counter(lst)
     return counts.most_common(1)[0][0]
+
+
+def load_data(task):
+    if task == "gsm":
+        data = read_jsonl('data/gsm/test.jsonl')
+    if task == "mmlu":
+        # Add your code here
+        
+    return data
 
 
 ###################################################
@@ -111,33 +94,76 @@ def parse_simple_math_answer(sentence):
 ###################################################
 # 3. GSM related
 ###################################################
-def extract_answer(text):
+def extract_answer(text, task):
     """
-    Extract answer from the GSM sample.
+    Extract answer from the given sample.
     """
-    if isinstance(text, int):
-        return float(text)
-    ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
-    INVALID_ANS = "[invalid]"
-    match = ANS_RE.search(text)
-    if match:
-        match_str = match.group(1).strip()
-        match_str = match_str.replace(",", "")
-        return match_str
-    else:
-        return parse_simple_math_answer(text)
-    return INVALID_ANS
+    if task == "gsm":
+        if isinstance(text, int):
+            return float(text)
+        ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
+        INVALID_ANS = "[invalid]"
+        match = ANS_RE.search(text)
+        if match:
+            match_str = match.group(1).strip()
+            match_str = match_str.replace(",", "")
+            return match_str
+        else:
+            return parse_simple_math_answer(text)
+        return INVALID_ANS
+    if task == "mmlu":
+        # Add your code here
 
 
-def extract_pred_answer(text):
+def extract_pred_answer(text, task):
     """
     Extract answer from the model response
     """
-    if not isinstance(text, str):
+    if task == "gsm":
+        if not isinstance(text, str):
+            text = str(text)
+        matches = re.findall(r"\$?\d[\d,]*\.?\d*", text)
+        if matches:
+            last = matches[-1]
+            # Remove $ and commas
+            return re.sub(r"[^\d.]", "", last)
+        return None
+    if task == "mmlu":
+        # Add your code here
+
+
+def extract_math_decision(text) -> str:
+    """
+    Extracts decision of the meta-reviewer for a math problem.
+    """
+    if isinstance(text, dict):
+        if "Decision" in text.keys():
+            decision = text['Decision']
+        elif "decision" in text.keys():
+            decision = text['decision']
+        else:
+            decision = None
+    else:
         text = str(text)
-    matches = re.findall(r"\$?\d[\d,]*\.?\d*", text)
-    if matches:
-        last = matches[-1]
-        # Remove $ and commas
-        return re.sub(r"[^\d.]", "", last)
-    return None
+        match = re.search(r'Decision:\s*(\w+[-]?\w*)', text)
+        if match:
+            decision = match.group(1)
+        else:
+            match = re.search(r"right|wrong|Right|Wrong", text)
+            if match:
+                return match.group(0)
+            return "right"
+    if decision is None:
+        decision = "right"
+    return decision
+
+
+def extract_debate_answer(agent_histories, task):
+    if task == "gsm":
+        final_responses = [history[-1]["content"] for history in agent_histories]
+        answers = [extract_pred_answer(r, task=task) for r in final_responses]
+        majority = most_frequent_element(answers)
+    if task == "mmlu":
+        # Add your code here
+        
+    return majority
