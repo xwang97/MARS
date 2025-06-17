@@ -44,7 +44,7 @@ def load_data(task):
         data = read_jsonl('data/gsm/test.jsonl')
     if task == "mmlu":
         # Add your code here
-        
+        None
     return data
 
 
@@ -113,6 +113,7 @@ def extract_answer(text, task):
         return INVALID_ANS
     if task == "mmlu":
         # Add your code here
+        None
 
 
 def extract_pred_answer(text, task):
@@ -130,6 +131,7 @@ def extract_pred_answer(text, task):
         return None
     if task == "mmlu":
         # Add your code here
+        None
 
 
 def extract_math_decision(text) -> str:
@@ -165,5 +167,5 @@ def extract_debate_answer(agent_histories, task):
         majority = most_frequent_element(answers)
     if task == "mmlu":
         # Add your code here
-        
+        None
     return majority

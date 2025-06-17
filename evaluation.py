@@ -42,12 +42,12 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
                 print("GT answer and predicted answer: ", answer, pred_answer)
                 print("\n")
             if float(pred_answer) == float(answer):
-                single_agent_scores.append(1)
-                multi_agent_scores.append(1)
+                single_agent_scores.append(int(1))
+                multi_agent_scores.append(int(1))
             else:
-                single_agent_scores.append(0)
-                multi_agent_scores.append(0)
-                hard_collections.append(i)
+                single_agent_scores.append(int(0))
+                multi_agent_scores.append(int(0))
+                hard_collections.append(int(i))
         else:
             initial_answer = extract_pred_answer(review_history['author_response'], task)
             updated_answer = extract_pred_answer(review_history['author_rebuttal'], task)
@@ -55,20 +55,20 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
                 print("GT answer, initial answer, final answer: ", answer, initial_answer, updated_answer)
                 print("\n")
             if float(initial_answer) == float(answer):
-                single_agent_scores.append(1)
+                single_agent_scores.append(int(1))
             else:
-                single_agent_scores.append(0)
+                single_agent_scores.append(int(0))
             if float(updated_answer) == float(answer):
-                multi_agent_scores.append(1)
+                multi_agent_scores.append(int(1))
                 if float(initial_answer) != float(answer):
-                    rectified_collections.append(i)
-                    hard_collections.append(i)
+                    rectified_collections.append(int(i))
+                    hard_collections.append(int(i))
             else:
-                multi_agent_scores.append(0)
-                hard_collections.append(i)
-        review_history['id'] = i
-        review_history['single_score'] = single_agent_scores[-1]
-        review_history['multi_score'] = multi_agent_scores[-1]
+                multi_agent_scores.append(int(0))
+                hard_collections.append(int(i))
+        review_history['id'] = int(i)
+        review_history['single_score'] = int(single_agent_scores[-1])
+        review_history['multi_score'] = int(multi_agent_scores[-1])
         token_usages.append(review_history['total_tokens'])
         records.append(review_history)
     end_time = time.time()
@@ -105,7 +105,7 @@ def eval_self_reflection(task="gsm", n_problems=5, selected=True, verbosity=0):
         pred_answer = extract_pred_answer(reflection_history['reflection'], task)
         if verbosity:
             print("GT answer and predicted answer: ", answer, pred_answer)
-        if float(pred_answer) == float(answer):
+        if pred_answer is not None and float(pred_answer) == float(answer):
             scores.append(int(1))
         else:
             scores.append(int(0))
@@ -147,7 +147,7 @@ def eval_debate(task="gsm", n_problems=5, selected=True, verbosity=0):
         pred_answer = extract_debate_answer(debate_history, task)  # need update !!!
         if verbosity:
             print("GT answer and predicted answer: ", answer, pred_answer)
-        if float(pred_answer) == float(answer):
+        if pred_answer is not None and float(pred_answer) == float(answer):
             scores.append(int(1))
         else:
             scores.append(int(0))

@@ -139,4 +139,5 @@ class PromptBuilder:
             )
         if self.task == "mmlu":
             # Add your code here
+            None
         return {"role": "user", "content": prompt}
