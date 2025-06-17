@@ -2,6 +2,9 @@ import re
 import datasets
 import json
 from collections import Counter
+from glob import glob
+import pandas as pd
+
 
 
 ###################################################
@@ -41,11 +44,27 @@ def most_frequent_element(lst):
 
 def load_data(task):
     if task == "gsm":
-        data = read_jsonl('data/gsm/test.jsonl')
+        all_questions = read_jsonl('data/gsm/test.jsonl')
     if task == "mmlu":
         # Add your code here
-        None
-    return data
+        tasks = glob("data/mmlu/data/test/*.csv")
+        dfs = [pd.read_csv(task) for task in tasks]
+        # print(len(dfs))
+        all_questions=[]
+        for df in dfs:
+            for i in range(len(df)):
+                question = df.iloc[i, 0]
+                a = df.iloc[i, 1]
+                b = df.iloc[i, 2]
+                c = df.iloc[i, 3]
+                d = df.iloc[i, 4]
+                question = "{}: A) {}, B) {}, C) {}, D) {}".format(question, a, b, c, d)
+                answer = df.iloc[i, 5]
+                single_que={"question":question,
+                        "answer":answer}
+                all_questions.append(single_que)
+        # print(all_questions[1]["answer"])
+    return all_questions
 
 
 ###################################################
@@ -112,8 +131,7 @@ def extract_answer(text, task):
             return parse_simple_math_answer(text)
         return INVALID_ANS
     if task == "mmlu":
-        # Add your code here
-        None
+        return text
 
 
 def extract_pred_answer(text, task):
@@ -130,8 +148,11 @@ def extract_pred_answer(text, task):
             return re.sub(r"[^\d.]", "", last)
         return None
     if task == "mmlu":
-        # Add your code here
-        None
+        match = re.search(r'\(([A-D])\)', text)
+    if match:
+        return match.group(1) 
+    else:
+        return None 
 
 
 def extract_math_decision(text) -> str:
@@ -168,4 +189,5 @@ def extract_debate_answer(agent_histories, task):
     if task == "mmlu":
         # Add your code here
         None
+        
     return majority

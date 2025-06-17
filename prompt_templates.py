@@ -15,7 +15,12 @@ class PromptBuilder:
         if self.task == "mmlu":
             # Add your code here
             author_prompt = (
-                
+                "You are an assistant. Please help to solve the following problem:\n"
+                f"{user_query}\n\n"
+                "Give your thoughts about the question and the final answer in the following format:\n"
+                "Thoughts: [your thoughts with immediate results]\n"
+                "Answer: [the final single captial letter answer in the form (X). X is chosed from [A,B,C,D]]\n\n"
+                "Your final answer must be a single capital letter in the form (X) at the end of the response.. X is from [A,B,C,D].\n\n"
             )
         return author_prompt
 
@@ -39,6 +44,11 @@ class PromptBuilder:
         if self.task == "mmlu":
             # Add your code here
             reviewer_prompt = (
+                "You are a reviewer. The author has submitted the following answer to a problem:\n\n"
+                f"Question: {user_query}\n\n"
+                f"Answer: {author_response}\n\n"
+                "Please evaluate the correctness of the author's response. Follow the instructions and format strictly:\n\n"
+                f"{output_format}"
                 
             )
         return reviewer_prompt
@@ -63,6 +73,14 @@ class PromptBuilder:
         if self.task == "mmlu":
             # Add your code here
             meta_prompt = (
+                "You are the meta-reviewer. The author has submitted an answer to a problem.\n\n"
+                f"Question: {user_query}\n\n"
+                f"Answer: {author_response}\n\n"
+                "You must decide whether the answer is correct by summarizing and analyzing the reviewers' comments below:\n\n"
+                "--- Reviewer Feedback ---\n"
+                f"{combined_reviews}\n\n"
+                "Provide your conclusion in the following format. If the decision is 'wrong', you must identify the flawed step(s) and give your suggestions for revision.\n\n"
+                f"{output_format}"
                 
             )
         return meta_prompt
@@ -84,6 +102,16 @@ class PromptBuilder:
         if self.task == "mmlu":
             # Add your code here
             feedback_prompt = (
+                    "Your answer to the following question was reviewed and marked as incorrect by the meta-reviewer.\n\n"
+                    f"Question: {user_query}\n\n"
+                    f"Your original answer: {author_response}\n\n"
+                    "The meta-reviewer has provided the following feedback:\n\n"
+                    f"{meta_decision}\n\n."
+                    "You must consider the meta-reviewer's suggestions seriously and revise your answer accordingly.\n\n"
+                    "Make sure to state your thoughts and new answer with this format:\n"
+                    "Thoughts: [your step-by-step computation process]\n"
+                    "Answer: [the final single captial letter answer in the form (X). X is chosed from [A,B,C,D]]\n"
+                    "Your final answer must be a single capital letter in the form (X) at the end of the response.. X is from [A,B,C,D].\n\n"
                 
             )
         return feedback_prompt
@@ -106,7 +134,14 @@ class PromptBuilder:
         if self.task == "mmlu":
             # Add your code here
             reflection_prompt = (
-                
+                "You wrote the following response to a problem:\n\n"
+                f"Qustion: {user_query}\n\n"
+                f"Answer: {response}\n\n"
+                "Carefully review your own answer. Are there any mistakes or thoughts not grounded in the given problem or known facts?\n"
+                "If yes, explain the problems and revise your answer accordingly. If not, confirm and repeat your initial answer."
+                "Your final response must follow this format:\n"
+                "Mistakes (if any): \n\n"
+                "Answer: [the final single captial letter answer in the form (X). X is chosed from [A,B,C,D]]\n\n"
             )
         return reflection_prompt
 
