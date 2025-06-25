@@ -1,5 +1,5 @@
 from pipelines import PipelineRunner
-from utils import extract_answer, extract_pred_answer, save_jsonl, load_data, extract_debate_answer
+from utils import extract_answer, extract_pred_answer, save_jsonl, load_data, extract_debate_answer, extract_pred_answer_majority
 from tqdm import tqdm
 import numpy as np
 from datetime import date
@@ -32,43 +32,31 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
             print("question: ", question)
             print("gt_answer: ", gt_answer)
             print("===================")
-        answer = extract_answer(gt_answer, task)  # need update !!!
+        answer = extract_answer(gt_answer, task)
         # Run MARVEL pipeline
         runner = PipelineRunner(task=task)
         review_history = runner.run_marvel_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
-        if "author_rebuttal" not in review_history:  # initial answer accepted
-            pred_answer = extract_pred_answer(review_history['author_response'], task)  # need update !!!
-            if verbosity:
-                print("GT answer and predicted answer: ", answer, pred_answer)
-                print("\n")
-            if float(pred_answer) == float(answer):
-                single_agent_scores.append(int(1))
-                multi_agent_scores.append(int(1))
-            else:
-                single_agent_scores.append(int(0))
-                multi_agent_scores.append(int(0))
-                hard_collections.append(int(i))
+        single_agent_answer = extract_pred_answer(review_history['author_response'], task)
+        multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
+        if single_agent_answer == answer:
+            single_agent_scores.append(1)
         else:
-            initial_answer = extract_pred_answer(review_history['author_response'], task)
-            updated_answer = extract_pred_answer(review_history['author_rebuttal'], task)
-            if verbosity:
-                print("GT answer, initial answer, final answer: ", answer, initial_answer, updated_answer)
-                print("\n")
-            if float(initial_answer) == float(answer):
-                single_agent_scores.append(int(1))
-            else:
-                single_agent_scores.append(int(0))
-            if float(updated_answer) == float(answer):
-                multi_agent_scores.append(int(1))
-                if float(initial_answer) != float(answer):
-                    rectified_collections.append(int(i))
-                    hard_collections.append(int(i))
-            else:
-                multi_agent_scores.append(int(0))
-                hard_collections.append(int(i))
+            single_agent_scores.append(0)
+        if multi_agent_answer == answer:
+            multi_agent_scores.append(1)
+        else:
+            multi_agent_scores.append(0)
+        if verbosity:
+            print("GT, single-agent, and multi-agent answer: ", answer, single_agent_answer, multi_agent_answer)
+        if single_agent_answer != answer:
+            hard_collections.append(i)
+        if single_agent_answer != answer and multi_agent_answer == answer:
+            rectified_collections.append(i)
         review_history['id'] = int(i)
         review_history['single_score'] = int(single_agent_scores[-1])
         review_history['multi_score'] = int(multi_agent_scores[-1])
+        review_history['question'] = question
+        review_history['gt_answer'] = gt_answer
         token_usages.append(review_history['total_tokens'])
         records.append(review_history)
     end_time = time.time()
@@ -82,6 +70,7 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
 
 def eval_self_reflection(task="gsm", n_problems=5, selected=True, verbosity=0):
     all_questions = load_data(task=task)
+    single_scores = []
     scores = []
     token_usages = []
     records = []  # record the full review process of each question
@@ -102,15 +91,21 @@ def eval_self_reflection(task="gsm", n_problems=5, selected=True, verbosity=0):
         # Run reflection pipeline
         runner = PipelineRunner(task=task)
         reflection_history = runner.run_self_reflection_pipeline(question, verbosity=verbosity)
+        initial_answer = extract_pred_answer(reflection_history['response'], task)
         pred_answer = extract_pred_answer(reflection_history['reflection'], task)
         if verbosity:
             print("GT answer and predicted answer: ", answer, pred_answer)
-        if pred_answer is not None and float(pred_answer) == float(answer):
+        if initial_answer is not None and initial_answer == answer:
+            single_scores.append(int(1))
+        else:
+            single_scores.append(int(0))
+        if pred_answer is not None and pred_answer == answer:
             scores.append(int(1))
         else:
             scores.append(int(0))
             hard_collections.append(i)
         reflection_history['id'] = int(i)
+        reflection_history['single_score'] = single_scores[-1]
         reflection_history['score'] = scores[-1]
         token_usages.append(reflection_history['total_tokens'])
         records.append(reflection_history)
@@ -119,7 +114,7 @@ def eval_self_reflection(task="gsm", n_problems=5, selected=True, verbosity=0):
     date_str = date.today().isoformat()
     save_name = f"baselines/reflection_logs/{task}_{date_str}.jsonl"
     save_jsonl(records, save_name)
-    return sum(scores), hard_collections, np.mean(token_usages), avg_time
+    return sum(single_scores), sum(scores), hard_collections, np.mean(token_usages), avg_time
 
 
 def eval_debate(task="gsm", n_problems=5, selected=True, verbosity=0):
@@ -147,7 +142,7 @@ def eval_debate(task="gsm", n_problems=5, selected=True, verbosity=0):
         pred_answer = extract_debate_answer(debate_history, task)  # need update !!!
         if verbosity:
             print("GT answer and predicted answer: ", answer, pred_answer)
-        if pred_answer is not None and float(pred_answer) == float(answer):
+        if pred_answer is not None and pred_answer == answer:
             scores.append(int(1))
         else:
             scores.append(int(0))

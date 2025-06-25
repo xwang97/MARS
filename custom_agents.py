@@ -1,6 +1,8 @@
 from openai import OpenAI
 import random
 from utils import get_openai_api_key
+from sagemaker.predictor import retrieve_default
+from transformers import AutoTokenizer
 
 
 # ======= Definition of the OpenAI agent class ================
@@ -39,6 +41,55 @@ class OpenAIAgent:
         return {
             "role": "assistant",
             "content": response.choices[0].message.content.strip()
+        }
+
+
+# ======= Definition of the AWS agent class ================
+class AWSAgent:
+    def __init__(self, name, endpoint_name, model="meta-llama/Meta-Llama-3.1-8B-Instruct", max_new_tokens=4096):
+        self.name = name
+        self.endpoint_name = endpoint_name
+        self.model = model
+        self.predictor = retrieve_default(endpoint_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model)
+        self.max_new_tokens = max_new_tokens
+        self.total_tokens = 0
+        self.token_log = []
+
+    def run(self, prompt: str | list[dict]) -> str | dict:
+        if isinstance(prompt, str):
+            messages = [{"role": "user", "content": prompt}]
+            return self._call_aws(messages)["content"]  # for compatibility
+        elif isinstance(prompt, list):
+            return self._call_aws(prompt)  # chat-style list[dict]
+
+    def _call_aws(self, messages: list[dict]) -> dict:
+        formatted_input = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        payload = {
+            "inputs": formatted_input,
+            "parameters": {
+                "max_new_tokens": self.max_new_tokens,
+                "details": True,
+                "decoder_input_details": True
+            }
+        }
+        response = self.predictor.predict(payload)
+
+        input_tokens = len(response['details']['prefill'])
+        output_tokens = response["details"]["generated_tokens"]
+        self.total_tokens += (input_tokens + output_tokens)
+        self.token_log.append({
+            "agent": self.name,
+            "model": self.model,
+            "endpoint": self.endpoint_name,
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": self.total_tokens,
+            "messages_preview": messages[-1]["content"][:100]
+        })
+        return {
+            "role": "assistant",
+            "content": response["generated_text"].strip()
         }
 
 

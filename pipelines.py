@@ -1,27 +1,31 @@
 from custom_agents import create_author_agent, create_reviewer_agents, create_meta_reviewer_agent
-from utils import extract_math_decision
+from utils import extract_math_decision, extract_pred_answer
 from prompt_templates import PromptBuilder
 
 
 class PipelineRunner:
     def __init__(self, task="gsm", agent_backend="openai"):
+        self.task = task
         self.templates = PromptBuilder(task=task)
 
     def run_marvel_pipeline(self, user_query, n_reviewers=3, verbosity=0):
         author = create_author_agent()
         reviewers = create_reviewer_agents(n_reviewers)
         meta = create_meta_reviewer_agent()
+        author_history = []
 
         # Step 1: Author answers
         author_input = self.templates.construct_author_prompt(user_query)
-        author_response = author.run(author_input)
+        author_history.append(author_input)
+        author_response = author.run(author_history)
+        author_history.append(author_response)
         if verbosity:
-            print("\n=== Author's Answer ===\n", author_response)
+            print("\n=== Author's Answer ===\n", author_response["content"])
 
         # Step 2: Reviewers critique
         review_responses = []
         for reviewer in reviewers:
-            review_input = self.templates.construct_reviewer_prompt(user_query, author_response)
+            review_input = self.templates.construct_reviewer_prompt(user_query, author_response["content"])
             review = reviewer.run(review_input)
             review_responses.append(review)
             if verbosity:
@@ -31,14 +35,14 @@ class PipelineRunner:
         combined_reviews = "\n\n".join(
             [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
         )
-        meta_input = self.templates.construct_meta_prompt(user_query, author_response, combined_reviews)
+        meta_input = self.templates.construct_meta_prompt(user_query, author_response["content"], combined_reviews)
         meta_decision = meta.run(meta_input)
         if verbosity:
             print("\n=== Meta-Reviewer Final Decision ===\n", meta_decision)
             print("\n")
 
         # Additional step: build a dictionary to save the review process
-        review_history = {"author_response": author_response}
+        review_history = {"author_response": author_response["content"]}
         for i, review in enumerate(review_responses):
             review_history[f"review{i+1}"] = review
         review_history["meta_review"] = meta_decision
@@ -46,11 +50,12 @@ class PipelineRunner:
         # Step 4: Send feedback or return final answer
         decision = extract_math_decision(meta_decision)
         if decision.lower() == "wrong":
-            feedback_input = self.templates.construct_feedback_prompt(user_query, author_response, meta_decision)
-            author_rebuttal = author.run(feedback_input)
+            feedback_input = self.templates.construct_feedback_prompt(meta_decision)
+            author_history.append(feedback_input)
+            author_rebuttal = author.run(author_history)
             if verbosity:
-                print("\n=== Author's new answer ===\n", author_rebuttal)
-            review_history['author_rebuttal'] = author_rebuttal
+                print("\n=== Author's new answer ===\n", author_rebuttal["content"])
+            review_history['author_rebuttal'] = author_rebuttal["content"]
 
         # Additional step: Compute total tokens used across all agents
         agents = [author, *reviewers, meta]

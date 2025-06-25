@@ -47,7 +47,7 @@ def load_data(task):
         all_questions = read_jsonl('data/gsm/test.jsonl')
     if task == "mmlu":
         # Add your code here
-        tasks = glob("data/mmlu/data/test/*.csv")
+        tasks = glob("data/mmlu/test/*.csv")
         dfs = [pd.read_csv(task) for task in tasks]
         # print(len(dfs))
         all_questions=[]
@@ -126,12 +126,12 @@ def extract_answer(text, task):
         if match:
             match_str = match.group(1).strip()
             match_str = match_str.replace(",", "")
-            return match_str
+            return float(match_str)
         else:
-            return parse_simple_math_answer(text)
+            return float(parse_simple_math_answer(text))
         return INVALID_ANS
     if task == "mmlu":
-        return text
+        return text[-1]
 
 
 def extract_pred_answer(text, task):
@@ -145,14 +145,40 @@ def extract_pred_answer(text, task):
         if matches:
             last = matches[-1]
             # Remove $ and commas
-            return re.sub(r"[^\d.]", "", last)
+            return float(re.sub(r"[^\d.]", "", last))
         return None
     if task == "mmlu":
-        match = re.search(r'\(([A-D])\)', text)
-    if match:
-        return match.group(1) 
+        # 1. Try direct "Answer: X" line
+        match = re.search(r'Answer:\s*([ABCD])[\).]?', text, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+        # 2. Fallback to "I would say that X)" or similar
+        match = re.search(r'I would say that\s+([ABCD])[\).]?', text, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+        # 3. Optional: fallback to last standalone A)-D) in the text (least reliable)
+        match = re.findall(r'\b([ABCD])[\).]', text)
+        if match:
+            return match[-1].upper()  # last one is likely the final answer
+        return None  # no answer found
+
+
+def extract_pred_answer_majority(review_history, n_reviewers, task):
+    """
+    Vote for the final answer, where the author has a higher priority
+    """
+    ans_list = []
+    initial_answer = extract_pred_answer(review_history['author_response'], task)
+    ans_list.append(initial_answer)
+    if 'author_rebuttal' not in review_history:
+        ans_list.append(initial_answer)
     else:
-        return None 
+        updated_answer = extract_pred_answer(review_history['author_rebuttal'], task)
+        ans_list.append(updated_answer)
+    for i in range(n_reviewers):
+        review = review_history[f"review{i+1}"]
+        ans_list.append(extract_pred_answer(review, task))
+    return most_frequent_element(ans_list)
 
 
 def extract_math_decision(text) -> str:
@@ -187,7 +213,7 @@ def extract_debate_answer(agent_histories, task):
         answers = [extract_pred_answer(r, task=task) for r in final_responses]
         majority = most_frequent_element(answers)
     if task == "mmlu":
-        # Add your code here
-        None
-        
+        final_responses = [history[-1]["content"] for history in agent_histories]
+        answers = [extract_pred_answer(r, task=task) for r in final_responses]
+        majority = most_frequent_element(answers)
     return majority
