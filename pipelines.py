@@ -3,15 +3,18 @@ from utils import extract_math_decision, extract_pred_answer
 from prompt_templates import PromptBuilder
 
 
+llm = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+endpoint = "jumpstart-dft-llama-3-1-8b-instruct-20250626-200453"
+
 class PipelineRunner:
     def __init__(self, task="gsm", agent_backend="openai"):
         self.task = task
         self.templates = PromptBuilder(task=task)
 
     def run_marvel_pipeline(self, user_query, n_reviewers=3, verbosity=0):
-        author = create_author_agent()
-        reviewers = create_reviewer_agents(n_reviewers)
-        meta = create_meta_reviewer_agent()
+        author = create_author_agent(model=llm, endpoint=endpoint)
+        reviewers = create_reviewer_agents(n_reviewers, model=llm, endpoint=endpoint)
+        meta = create_meta_reviewer_agent(model=llm, endpoint=endpoint)
         author_history = []
 
         # Step 1: Author answers

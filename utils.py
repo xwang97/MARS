@@ -22,9 +22,9 @@ def save_jsonl(samples, save_name):
             f.write("\n")
 
 
-def get_openai_api_key(filename):
+def get_api_key(filename):
     """
-    Read OpenAI API key from txt file.
+    Read API key from txt file.
     """
     api_key = ""
     with open(filename) as file:
