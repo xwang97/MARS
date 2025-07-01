@@ -26,6 +26,8 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
     # start testing on each question
     start_time = time.time()
     for i in tqdm(question_list):
+        if i % 6 == 0:
+            time.sleep(30)  # avoid rate limit
         question = all_questions[i]["question"]
         gt_answer = all_questions[i]["answer"]
         if verbosity:

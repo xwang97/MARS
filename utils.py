@@ -169,6 +169,7 @@ def extract_pred_answer_majority(review_history, n_reviewers, task):
     """
     ans_list = []
     initial_answer = extract_pred_answer(review_history['author_response'], task)
+    updated_answer = None
     ans_list.append(initial_answer)
     if 'author_rebuttal' not in review_history:
         ans_list.append(initial_answer)
@@ -178,7 +179,10 @@ def extract_pred_answer_majority(review_history, n_reviewers, task):
     for i in range(n_reviewers):
         review = review_history[f"review{i+1}"]
         ans_list.append(extract_pred_answer(review, task))
-    return most_frequent_element(ans_list)
+    majority = most_frequent_element(ans_list)
+    if majority is None:
+        return initial_answer if updated_answer is None else updated_answer
+    return majority
 
 
 def extract_math_decision(text) -> str:

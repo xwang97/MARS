@@ -2,3 +2,6 @@ smolagents
 smolagents[openai]
 duckduckgo-search
 openai
+llama-api-client
+datasets
+transformers
