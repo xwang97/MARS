@@ -15,7 +15,7 @@ mistral_api_key = get_api_key("../mistral_api_key.txt")
 hf_api_key = get_api_key("../hf_api_key.txt")
 
 # ======== LLM Setup ==============
-author_llm = "qwen/qwen2-7b-instruct"
+author_llm = "microsoft/phi-3.5-moe-instruct"
 reviewer_llms = [
     # "gpt-3.5-turbo",
     # "gpt-4o-mini",
