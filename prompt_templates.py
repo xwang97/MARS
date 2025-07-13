@@ -15,7 +15,7 @@ class PromptBuilder:
                     "Your final answer must be a single numerical number at the end of the response.\n\n"
                 )
             }
-        if self.task == "mmlu":
+        if self.task == "mmlu" or self.task=="gpqa":
             author_prompt = {
                 "role": "user",
                 "content": (
@@ -51,7 +51,7 @@ class PromptBuilder:
                 "2. **Accuracy**: Check whether each computation gets the correct result.\n"
                 f"{output_format}"
             )
-        if self.task == "mmlu":
+        if self.task == "mmlu" or self.task=="gpqa":
             reviewer_prompt = (
                 "You are a reviewer. The author has submitted the following answer to a problem:\n\n"
                 f"Question: {user_query}\n\n"
@@ -86,7 +86,7 @@ class PromptBuilder:
                 "Answer: [your recommended single numerical answer]\n\n"
             )
             # "Answer: [your recommended single numerical answer]\n\n"
-        if self.task == "mmlu":
+        if self.task == "mmlu" or self.task=="gpqa":
             # Add your code here
             meta_prompt = (
                 "You are the meta-reviewer. The author has submitted an answer to a problem.\n\n"
@@ -114,7 +114,7 @@ class PromptBuilder:
                     "Reasons: [your reasons of accepting or rejecting the suggestions]\n"
                     "Answer: [the final numerical answer]\n\n"
                 )
-        if self.task == "mmlu":
+        if self.task == "mmlu" or self.task=="gpqa":
             # Add your code here
             feedback_prompt = (
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
@@ -143,7 +143,7 @@ class PromptBuilder:
                 "Mistakes (if any): \n\n"
                 "Answer: [the final single numerical answer]\n\n"
             )
-        if self.task == "mmlu":
+        if self.task == "mmlu" or self.task=="gpqa":
             # Add your code here
             reflection_prompt = (
                 "You wrote the following response to a problem:\n\n"
@@ -185,7 +185,7 @@ class PromptBuilder:
                 "Your final answer must be a single numerical number at the end of the response.\n\n"
             )
         
-        if self.task == "mmlu":
+        if self.task == "mmlu" or self.task=="gpqa":
             if not other_agents_responses:
                 return {
                     "role": "user",

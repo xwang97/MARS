@@ -5,7 +5,7 @@ from collections import Counter
 from glob import glob
 import pandas as pd
 from fractions import Fraction
-
+import random
 
 ###################################################
 # 0. General usage
@@ -63,6 +63,17 @@ def load_data(task):
                         "answer":answer}
                 all_questions.append(single_que)
         # print(all_questions[1]["answer"])
+    if task=="gpqa":
+        question_df = pd.read_csv('data/gpqa/gpqa_main.csv')
+        random.seed(122)
+        for _, row in question_df.iterrows():
+            list_choices = [row['Incorrect Answer 1'], row['Incorrect Answer 2'], row['Incorrect Answer 3'], row['Correct Answer']]
+            random.shuffle(list_choices)
+            question = "{}: A) {}, B) {}, C) {}, D) {}".format(row.Question, list_choices[0], list_choices[1], list_choices[2], list_choices[3])
+            answer = ["A","B","C","D"][list_choices.index(row['Correct Answer'])]
+            single_que={"question":question,
+                        "answer":answer}
+            all_questions.append(single_que)
     if task == "ciar":
         all_questions = []
         with open("data/ciar/CIAR.json", "r") as f:
@@ -84,7 +95,7 @@ def is_correct(pred_answer, answer, task):
         if pred_answer is not None:
             return abs(pred_answer-answer) <= 0.01
         return False
-    if task == "mmlu":
+    if task == "mmlu" or task=="gpqa":
         return pred_answer == answer
 
 ###################################################
@@ -150,7 +161,7 @@ def extract_answer(text, task):
         else:
             return float(parse_simple_math_answer(text))
         return INVALID_ANS
-    if task == "mmlu":
+    if task == "mmlu" or task=="gpqa":
         return text[-1]
 
 
@@ -177,7 +188,7 @@ def extract_pred_answer(text, task):
                 except Exception:
                     continue
         return None
-    if task == "mmlu":
+    if task == "mmlu" or task=="gpqa":
         # 1. Try direct "Answer: X" line
         match = re.search(r'Answer:\s*([ABCD])[\).]?', text, re.IGNORECASE)
         if match:
