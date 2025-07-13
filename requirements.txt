@@ -5,3 +5,5 @@ openai
 llama-api-client
 datasets
 transformers
+cerebras_cloud_sdk
+mistralai

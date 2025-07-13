@@ -3,7 +3,7 @@ class PromptBuilder:
         self.task = task
 
     def construct_author_prompt(self, user_query):
-        if self.task == "gsm":
+        if self.task == "gsm" or self.task == "ciar":
             author_prompt = {
                 "role": "user",
                 "content": (
@@ -39,7 +39,7 @@ class PromptBuilder:
             "Answer: [your recommended answer]"
             "---\n\n"
         )
-        if self.task == "gsm":
+        if self.task == "gsm" or self.task == "ciar":
             reviewer_prompt = (
                 "You are a reviewer. The author has submitted the following answer to a math problem:\n\n"
                 f"Question: {user_query}\n\n"
@@ -68,9 +68,9 @@ class PromptBuilder:
         output_format = (
             "Decision: [right | wrong]\n"
             "Justification: [reasons of your decision]\n"
-            "Suggestions: [your suggestions for updating the answer]\n"
+            "Suggestions: [your suggestions for updating the answer, only needed when decision is wrong]\n"
         )
-        if self.task == "gsm":
+        if self.task == "gsm" or self.task == "ciar":
             meta_prompt = (
                 "You are the meta-reviewer. The author has submitted an answer to a math problem.\n\n"
                 f"Question: {user_query}\n\n"
@@ -80,11 +80,12 @@ class PromptBuilder:
                 "2. The reviewers' comments provided below\n\n"
                 "--- Reviewer Feedback ---\n"
                 f"{combined_reviews}\n\n"
-                "If the reviewers disagree with each other, weigh the majority comments highly."
                 "Do not only rely on the reviewers, you must also think by yourself.\n\n"
                 "Provide your conclusion in the following format:\n"
                 f"{output_format}"
+                "Answer: [your recommended single numerical answer]\n\n"
             )
+            # "Answer: [your recommended single numerical answer]\n\n"
         if self.task == "mmlu":
             # Add your code here
             meta_prompt = (
@@ -97,20 +98,21 @@ class PromptBuilder:
                 "Do not only rely on the reviewers, you must also think by yourself.\n\n"
                 "Provide your conclusion in the following format:\n"
                 f"{output_format}"
+                "Answer: [your recommended single numerical answer]\n\n"
             )
         return meta_prompt
 
     def construct_feedback_prompt(self, meta_decision):
-        if self.task == "gsm":
+        if self.task == "gsm" or self.task == "ciar":
             feedback_prompt = (
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
                     "--- Meta-reviewer Feedback ---\n"
                     f"{meta_decision}\n\n."
-                    "If you agree with the meta-reviewer's suggestions, revise your answer accordingly.\n\n"
-                    "Make sure to state your thoughts and new answer with this format:\n"
-                    "Thoughts: [your step-by-step computation process]\n"
-                    "Answer: [the final numerical answer]\n"
-                    "Your final answer must be a single numerical number at the end of the response.\n\n"
+                    "If you agree with the meta-reviewer's suggestions, revise your answer accordingly.\n"
+                    "If you disagree, insist on your initial answer and repeat it.\n\n"
+                    "Make sure to state your thoughts and final answer with this format:\n"
+                    "Reasons: [your reasons of accepting or rejecting the suggestions]\n"
+                    "Answer: [the final numerical answer]\n\n"
                 )
         if self.task == "mmlu":
             # Add your code here
@@ -118,8 +120,8 @@ class PromptBuilder:
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
                     "--- Meta-reviewer Feedback ---\n"
                     f"{meta_decision}\n\n."
-                    "If you strongly agree with the meta-reviewer's suggestions, revise your answer accordingly.\n\n"
-                    "If you disagree, insist on your initial answer and repeat it."
+                    "If you strongly agree with the meta-reviewer's suggestions, revise your answer accordingly.\n"
+                    "If you disagree, insist on your initial answer and repeat it.\n\n"
                     "Make sure to state your reasons and final answer with this format:\n"
                     "Reasons: [your reasons of accepting or rejecting the suggestions]\n"
                     "Answer: [the final single captial letter answer in the form (X). X is chosed from [A,B,C,D]]\n\n"

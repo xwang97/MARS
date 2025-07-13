@@ -4,7 +4,7 @@ import json
 from collections import Counter
 from glob import glob
 import pandas as pd
-
+from fractions import Fraction
 
 
 ###################################################
@@ -46,7 +46,6 @@ def load_data(task):
     if task == "gsm":
         all_questions = read_jsonl('data/gsm/test.jsonl')
     if task == "mmlu":
-        # Add your code here
         tasks = glob("data/mmlu/test/*.csv")
         dfs = [pd.read_csv(task) for task in tasks]
         # print(len(dfs))
@@ -64,8 +63,29 @@ def load_data(task):
                         "answer":answer}
                 all_questions.append(single_que)
         # print(all_questions[1]["answer"])
+    if task == "ciar":
+        all_questions = []
+        with open("data/ciar/CIAR.json", "r") as f:
+            data = json.load(f)
+        for sample in data:
+            question = sample['question']
+            for ans in sample["answer"]:
+                try:
+                    float_answer = float(ans.strip().rstrip("%")) / 100 if "%" in ans else float(ans)
+                    all_questions.append({"question": question, "answer": float_answer})
+                    break
+                except ValueError:
+                    continue
     return all_questions
 
+
+def is_correct(pred_answer, answer, task):
+    if task in ["gsm", "ciar"]:
+        if pred_answer is not None:
+            return abs(pred_answer-answer) <= 0.01
+        return False
+    if task == "mmlu":
+        return pred_answer == answer
 
 ###################################################
 # 1. Hallucination detection related
@@ -117,8 +137,8 @@ def extract_answer(text, task):
     """
     Extract answer from the given sample.
     """
-    if task == "gsm":
-        if isinstance(text, int):
+    if task == "gsm" or task == "ciar":
+        if isinstance(text, int) or isinstance(text, float):
             return float(text)
         ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
         INVALID_ANS = "[invalid]"
@@ -138,14 +158,24 @@ def extract_pred_answer(text, task):
     """
     Extract answer from the model response
     """
-    if task == "gsm":
+    if task == "gsm" or task == "ciar":
         if not isinstance(text, str):
             text = str(text)
-        matches = re.findall(r"\$?\d[\d,]*\.?\d*", text)
-        if matches:
-            last = matches[-1]
-            # Remove $ and commas
-            return float(re.sub(r"[^\d.]", "", last))
+        match = re.search(r"(?i)answer:(.*)", text, flags=re.DOTALL)
+        if not match:
+            return None
+        answer_text = match.group(1).strip()
+        lines = [line.strip() for line in answer_text.splitlines() if line.strip()]
+        for line in reversed(lines):
+            # Updated regex: prioritize fractions
+            tokens = re.findall(r"(\d+/\d+|\d+\.\d+%?|\d+%?|\d+)", line)
+            for token in reversed(tokens):
+                try:
+                    if token.endswith("%"):
+                        return float(token.rstrip("%")) / 100
+                    return float(Fraction(token))
+                except Exception:
+                    continue
         return None
     if task == "mmlu":
         # 1. Try direct "Answer: X" line
@@ -170,15 +200,16 @@ def extract_pred_answer_majority(review_history, n_reviewers, task):
     ans_list = []
     initial_answer = extract_pred_answer(review_history['author_response'], task)
     updated_answer = None
-    ans_list.append(initial_answer)
+    # ans_list.append(initial_answer)  # uncomment when using voting
     if 'author_rebuttal' not in review_history:
         ans_list.append(initial_answer)
     else:
         updated_answer = extract_pred_answer(review_history['author_rebuttal'], task)
         ans_list.append(updated_answer)
-    for i in range(n_reviewers):
-        review = review_history[f"review{i+1}"]
-        ans_list.append(extract_pred_answer(review, task))
+    # for i in range(n_reviewers):  # uncomment when using voting
+    #     review = review_history[f"review{i+1}"]
+    #     ans_list.append(extract_pred_answer(review, task))
+    # ans_list.append(extract_pred_answer(review_history['meta_review'], task))  # used for voting
     majority = most_frequent_element(ans_list)
     if majority is None:
         return initial_answer if updated_answer is None else updated_answer

@@ -1,5 +1,6 @@
 from pipelines import PipelineRunner
 from utils import extract_answer, extract_pred_answer, save_jsonl, load_data, extract_debate_answer, extract_pred_answer_majority
+from utils import is_correct
 from tqdm import tqdm
 import numpy as np
 from datetime import date
@@ -11,7 +12,7 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
     """
     Evaluate the MARVEL framework on certain task.
     """
-    all_questions = load_data(task=task)  # need update !!!
+    all_questions = load_data(task=task)
     single_agent_scores = []  # scores of single agent
     multi_agent_scores = []  # scores after multi-agent review
     token_usages = []  # total token consumptions of each question
@@ -22,12 +23,11 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
         question_list = list(np.loadtxt(f"data/{task}/question_ids.txt").astype(int))
     else:
         question_list = sorted(random.sample(range(len(all_questions)), n_problems))
+        # question_list = range(len(all_questions))
         np.savetxt(f"data/{task}/question_ids.txt", question_list)
     # start testing on each question
     start_time = time.time()
     for i in tqdm(question_list):
-        if i % 6 == 0:
-            time.sleep(30)  # avoid rate limit
         question = all_questions[i]["question"]
         gt_answer = all_questions[i]["answer"]
         if verbosity:
@@ -40,19 +40,19 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
         review_history = runner.run_marvel_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
         single_agent_answer = extract_pred_answer(review_history['author_response'], task)
         multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
-        if single_agent_answer == answer:
+        if is_correct(single_agent_answer, answer, task):
             single_agent_scores.append(1)
         else:
             single_agent_scores.append(0)
-        if multi_agent_answer == answer:
+            hard_collections.append(i)
+        if is_correct(multi_agent_answer, answer, task):
             multi_agent_scores.append(1)
         else:
             multi_agent_scores.append(0)
         if verbosity:
             print("GT, single-agent, and multi-agent answer: ", answer, single_agent_answer, multi_agent_answer)
-        if single_agent_answer != answer:
-            hard_collections.append(i)
-        if single_agent_answer != answer and multi_agent_answer == answer:
+            print("\n")
+        if not is_correct(single_agent_answer, answer, task) and is_correct(multi_agent_answer, answer, task):
             rectified_collections.append(i)
         review_history['id'] = int(i)
         review_history['single_score'] = int(single_agent_scores[-1])
