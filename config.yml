@@ -1,0 +1,29 @@
+author_llm: "gpt-3.5-turbo"
+reviewer_llms:
+  - "gpt-3.5-turbo"
+  - "gpt-3.5-turbo"
+  - "gpt-3.5-turbo"
+meta_llm: "gpt-3.5-turbo"
+
+
+
+
+# ======= Available LLM models =============
+# "gpt-3.5-turbo",
+# "gpt-4o-mini",
+
+# "mistralai/mistral-7b-instruct-v0.3",
+# "mistralai/mixtral-8x7b-instruct-v0.1",
+# "mistralai/mixtral-8x22b-instruct-v0.1",
+
+# "google/gemma-2-9b-it",
+# "google/gemma-2-27b-it",
+
+# "qwen/qwen2-7b-instruct",
+# "qwen/qwen2.5-7b-instruct",
+
+# "meta/llama-3.1-8b-instruct",
+# "meta/llama-3.3-70b-instruct",
+
+# "microsoft/phi-3.5-moe-instruct",
+# "microsoft/phi-3-medium-128k-instruct",

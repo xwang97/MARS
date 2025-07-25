@@ -64,6 +64,7 @@ def load_data(task):
                 all_questions.append(single_que)
         # print(all_questions[1]["answer"])
     if task=="gpqa":
+        all_questions = [] 
         question_df = pd.read_csv('data/gpqa/gpqa_main.csv')
         random.seed(122)
         for _, row in question_df.iterrows():
@@ -254,12 +255,15 @@ def extract_math_decision(text) -> str:
 
 
 def extract_debate_answer(agent_histories, task):
-    if task == "gsm":
-        final_responses = [history[-1]["content"] for history in agent_histories]
-        answers = [extract_pred_answer(r, task=task) for r in final_responses]
-        majority = most_frequent_element(answers)
-    if task == "mmlu":
-        final_responses = [history[-1]["content"] for history in agent_histories]
-        answers = [extract_pred_answer(r, task=task) for r in final_responses]
-        majority = most_frequent_element(answers)
+    # if task == "gsm":
+    #     final_responses = [history[-1]["content"] for history in agent_histories]
+    #     answers = [extract_pred_answer(r, task=task) for r in final_responses]
+    #     majority = most_frequent_element(answers)
+    # if task == "mmlu":
+    #     final_responses = [history[-1]["content"] for history in agent_histories]
+    #     answers = [extract_pred_answer(r, task=task) for r in final_responses]
+    #     majority = most_frequent_element(answers)
+    final_responses = [history[-1]["content"] for history in agent_histories]
+    answers = [extract_pred_answer(r, task=task) for r in final_responses]
+    majority = most_frequent_element(answers)
     return majority

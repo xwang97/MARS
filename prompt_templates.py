@@ -158,7 +158,7 @@ class PromptBuilder:
         return reflection_prompt
 
     def construct_debate_prompt(self, other_agents_responses, user_query, response_idx):
-        if self.task == "gsm":
+        if self.task == "gsm" or self.task == "ciar":
             if not other_agents_responses:
                 return {
                     "role": "user",

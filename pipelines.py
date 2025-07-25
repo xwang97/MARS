@@ -63,6 +63,15 @@ class PipelineRunner:
         review_history["total_tokens"] = total_tokens
         return review_history
 
+    def run_single_agent_pipeline(self, user_query, verbosity=0):
+        agent = create_author_agent()
+        author_input = self.templates.construct_initial_prompt(user_query)
+        response = agent.run(author_input)
+        if verbosity:
+            print("\n=== Agent Answer ===\n", response)
+        agent_history = {"response": response, "total_tokens": agent.total_tokens}
+        return agent_history
+
     def run_self_reflection_pipeline(self, user_query, verbosity=0):
         agent = create_author_agent()
         # Step 1: Initial answer

@@ -4,10 +4,11 @@ from utils import get_api_key
 from cerebras.cloud.sdk import Cerebras
 from mistralai import Mistral
 from huggingface_hub import InferenceClient
+import yaml
 
 
 # ======== API key Setup ==============
-openai_api_key = get_api_key("../openai_api_key_4_XiaoWang.txt")
+openai_api_key = get_api_key("../openai_api_key.txt")
 nvidia_api_key = get_api_key("../nvidia_api_key.txt")
 deepseek_api_key = get_api_key("../deepseek_api_key.txt")
 cerebras_api_key = get_api_key("../cerebras_api_key.txt")
@@ -15,27 +16,40 @@ mistral_api_key = get_api_key("../mistral_api_key.txt")
 hf_api_key = get_api_key("../hf_api_key.txt")
 
 # ======== LLM Setup ==============
-author_llm = "microsoft/phi-3.5-moe-instruct"
-reviewer_llms = [
-    # "gpt-3.5-turbo",
-    # "gpt-4o-mini",
-    # "mistral-small-latest",
-    # "ministral-8b-latest",
-    # "mistralai/mistral-7b-instruct-v0.3",
-    # "google/gemma-2-9b-it",
-    # "qwen/qwq-32b",
-    # "qwen/qwen2-7b-instruct",
-    # "qwen/qwen2.5-7b-instruct",
-    # "gpt-4o-mini",
-    # "llama-3.3-70b",
-    # "meta/llama-3.3-70b-instruct",
-    # "llama-3.1-8b",
-    # "mistralai/mixtral-8x7b-instruct-v0.1",
-    # "qwen-3-32b"
-    "mistralai/mixtral-8x22b-instruct-v0.1",
-]
-# meta_llm = "deepseek-chat"
-meta_llm = "gpt-4o-mini"
+# Load the YAML config file
+with open("config.yml", "r") as file:
+    config = yaml.safe_load(file)
+author_llm = config['author_llm']
+reviewer_llms = config['reviewer_llms']
+meta_llm = config['meta_llm']
+
+# author_llm = "mistralai/mixtral-8x22b-instruct-v0.1"
+# reviewer_llms = [
+#     # "gpt-3.5-turbo",
+#     "gpt-4o-mini",
+    
+#     # "mistral-small-latest",
+#     # "ministral-8b-latest",
+#     # "mistralai/mistral-7b-instruct-v0.3",
+#     # "mistralai/mixtral-8x7b-instruct-v0.1",
+#     "mistralai/mixtral-8x22b-instruct-v0.1",
+
+#     # "google/gemma-2-9b-it",
+#     # "google/gemma-2-27b-it",
+
+#     # "qwen/qwen2-7b-instruct",
+#     # "qwen/qwen2.5-7b-instruct",
+#     # "qwen/qwq-32b",
+#     # "qwen-3-32b"
+
+#     # "meta/llama-3.1-8b-instruct",
+#     # "llama-3.3-70b",
+#     # "meta/llama-3.3-70b-instruct",
+
+#     # "microsoft/phi-3.5-moe-instruct",
+#     # "microsoft/phi-3-medium-128k-instruct",
+# ]
+# meta_llm = "mistralai/mixtral-8x22b-instruct-v0.1"
 
 
 # ======= Definition of the OpenAI agent class ================
@@ -44,7 +58,8 @@ class OpenAIAgent:
         self.name = name
         self.model = model
         self.openai_sdk = True
-        if model[:3] == "gpt":
+        self.client = None
+        if "gpt" in model:
             self.client = OpenAI(api_key=openai_api_key)
         elif "deepseek" in model:
             self.client = OpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com")

@@ -1,9 +1,6 @@
-smolagents
-smolagents[openai]
-duckduckgo-search
 openai
-llama-api-client
 datasets
 transformers
 cerebras_cloud_sdk
 mistralai
+yaml
