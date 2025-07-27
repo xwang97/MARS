@@ -3,4 +3,4 @@ datasets
 transformers
 cerebras_cloud_sdk
 mistralai
-yaml
+PyYAML
