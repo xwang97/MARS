@@ -1,6 +1,6 @@
-# ✨ MARVEL: Toward More Efficient Multi-Agent Collaboration for LLM Reasoning
+# ✨ MARS: Toward More Efficient Multi-Agent Collaboration for LLM Reasoning
 
-This repository provides the necessary scripts and examples to run the **MARVEL** pipeline and reproduce the experimental results from our paper.
+This repository provides the necessary scripts and examples to run the **MARS** pipeline and reproduce the experimental results from our paper.
 
 ---
 
@@ -12,7 +12,7 @@ This repository provides the necessary scripts and examples to run the **MARVEL*
 
 ## 🚀 Usage
 
-This section walks through how to run the core functionalities of MARVEL.
+This section walks through how to run the core functionalities of MARS.
 
 ---
 
@@ -21,8 +21,8 @@ This section walks through how to run the core functionalities of MARVEL.
 Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/xwang97/MARVEL.git
-cd MARVEL
+git clone https://github.com/xwang97/MARS.git
+cd MARS
 pip install -r requirements.txt
 ```
 
@@ -47,7 +47,7 @@ meta_llm: "gpt-3.5-turbo"
 
 ### 🧪 Quick Example
 
-Run the full MARVEL pipeline from a Python terminal:
+Run the full MARS pipeline from a Python terminal:
 
 ```python
 from pipelines import PipelineRunner
@@ -90,7 +90,7 @@ multi_score, _, avg_tokens, avg_time = eval_marvel(
 )
 ```
 
-This evaluates MARVEL on the [GPQA dataset](https://github.com/idavidrein/gpqa).
+This evaluates MARS on the [GPQA dataset](https://github.com/idavidrein/gpqa).
 
 #### 📌 Parameters
 
