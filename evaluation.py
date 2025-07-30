@@ -61,7 +61,7 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
     # save all the review histories
     date_str = date.today().isoformat()
     save_name = f"data/{task}/records/{date_str}.jsonl"
-    if not os.exists(f"data/{task}/records"):
+    if not os.path.exists(f"data/{task}/records"):
         os.makedirs(f"data/{task}/records")
     save_jsonl(records, save_name)
     return sum(multi_agent_scores), rectified_collections, np.mean(token_usages), avg_time
