@@ -10,10 +10,10 @@ import yaml
 # ======== API key Setup ==============
 openai_api_key = get_api_key("../openai_api_key.txt")
 nvidia_api_key = get_api_key("../nvidia_api_key.txt")
-deepseek_api_key = get_api_key("../deepseek_api_key.txt")
-cerebras_api_key = get_api_key("../cerebras_api_key.txt")
-mistral_api_key = get_api_key("../mistral_api_key.txt")
-hf_api_key = get_api_key("../hf_api_key.txt")
+# deepseek_api_key = get_api_key("../deepseek_api_key.txt")
+# cerebras_api_key = get_api_key("../cerebras_api_key.txt")
+# mistral_api_key = get_api_key("../mistral_api_key.txt")
+# hf_api_key = get_api_key("../hf_api_key.txt")
 
 # ======== LLM Setup ==============
 # Load the YAML config file
