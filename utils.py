@@ -88,11 +88,20 @@ def load_data(task):
                     break
                 except ValueError:
                     continue
+    if task == "gsm_hard":
+        all_questions = []
+        with open("data/gsm_hard/GSM8KHARD.json", "r") as f:
+            data = json.load(f)
+        for sample in data:
+            question = sample['problem']
+            ans = sample["solution"]
+            float_answer = float(ans)
+            all_questions.append({"question": question, "answer": float_answer})
     return all_questions
 
 
 def is_correct(pred_answer, answer, task):
-    if task in ["gsm", "ciar"]:
+    if task in ["gsm", "ciar", "gsm_hard"]:
         if pred_answer is not None:
             return abs(pred_answer-answer) <= 0.01
         return False
@@ -149,7 +158,7 @@ def extract_answer(text, task):
     """
     Extract answer from the given sample.
     """
-    if task == "gsm" or task == "ciar":
+    if task in ["gsm", "ciar", "gsm_hard"]:
         if isinstance(text, int) or isinstance(text, float):
             return float(text)
         ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
@@ -170,7 +179,7 @@ def extract_pred_answer(text, task):
     """
     Extract answer from the model response
     """
-    if task == "gsm" or task == "ciar":
+    if task in ["gsm", "ciar", "gsm_hard"]:
         if not isinstance(text, str):
             text = str(text)
         match = re.search(r"(?i)answer:(.*)", text, flags=re.DOTALL)

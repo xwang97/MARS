@@ -3,7 +3,7 @@ class PromptBuilder:
         self.task = task
 
     def construct_author_prompt(self, user_query):
-        if self.task == "gsm" or self.task == "ciar":
+        if self.task in ["gsm", "ciar", "gsm_hard"]:
             author_prompt = {
                 "role": "user",
                 "content": (
@@ -39,7 +39,7 @@ class PromptBuilder:
             "Answer: [your recommended answer]"
             "---\n\n"
         )
-        if self.task == "gsm" or self.task == "ciar":
+        if self.task in ["gsm", "ciar", "gsm_hard"]:
             reviewer_prompt = (
                 "You are a reviewer. The author has submitted the following answer to a math problem:\n\n"
                 f"Question: {user_query}\n\n"
@@ -70,7 +70,7 @@ class PromptBuilder:
             "Justification: [reasons of your decision]\n"
             "Suggestions: [your suggestions for updating the answer, only needed when decision is wrong]\n"
         )
-        if self.task == "gsm" or self.task == "ciar":
+        if self.task in ["gsm", "ciar", "gsm_hard"]:
             meta_prompt = (
                 "You are the meta-reviewer. The author has submitted an answer to a math problem.\n\n"
                 f"Question: {user_query}\n\n"
@@ -103,7 +103,7 @@ class PromptBuilder:
         return meta_prompt
 
     def construct_feedback_prompt(self, meta_decision):
-        if self.task == "gsm" or self.task == "ciar":
+        if self.task in ["gsm", "ciar", "gsm_hard"]:
             feedback_prompt = (
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
                     "--- Meta-reviewer Feedback ---\n"
@@ -132,7 +132,7 @@ class PromptBuilder:
         return self.construct_author_prompt(user_query)["content"]
 
     def construct_reflection_prompt(self, user_query, response):
-        if self.task == "gsm":
+        if self.task in ["gsm", "ciar", "gsm_hard"]:
             reflection_prompt = (
                 "You wrote the following response to a math problem:\n\n"
                 f"Qustion: {user_query}\n\n"
@@ -158,7 +158,7 @@ class PromptBuilder:
         return reflection_prompt
 
     def construct_debate_prompt(self, other_agents_responses, user_query, response_idx):
-        if self.task == "gsm" or self.task == "ciar":
+        if self.task in ["gsm", "ciar", "gsm_hard"]:
             if not other_agents_responses:
                 return {
                     "role": "user",
