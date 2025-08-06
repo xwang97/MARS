@@ -25,16 +25,11 @@ class OpenAIAgent:
         self.client = None
         if "gpt" in model:
             self.client = OpenAI(api_key=openai_api_key)
-        elif "deepseek" in model:
-            self.client = OpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com")
         elif "llama" in model:
             # self.client = Cerebras(api_key=cerebras_api_key)
             self.client = OpenAI(api_key=nvidia_api_key, base_url="https://integrate.api.nvidia.com/v1")
         elif "qwen" in model or "gemma" in model or "mistral" in model:
             self.client = OpenAI(api_key=nvidia_api_key, base_url="https://integrate.api.nvidia.com/v1")
-        # elif "mistral" in model or "ministral" in model:
-        #     self.client = Mistral(api_key=mistral_api_key)
-        #     self.openai_sdk = False
         self.total_tokens = 0
         self.token_log = []
 
