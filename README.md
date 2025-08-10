@@ -53,7 +53,7 @@ Run the full MARS pipeline from a Python terminal:
 from pipelines import PipelineRunner
 
 runner = PipelineRunner(task="gpqa")
-review_history = runner.run_marvel_pipeline(user_query="What is 9 × 7?", n_reviewers=3, verbosity=1)
+review_history = runner.run_mars_pipeline(user_query="What is 9 × 7?", n_reviewers=3, verbosity=1)
 
 response = review_history['author_response'] if 'author_rebuttal' not in review_history else review_history['author_rebuttal']
 ```
@@ -82,7 +82,7 @@ You can reproduce all experiments from the paper using `evaluation.py`. For exam
 ```python
 from evaluation import eval_marvel
 
-multi_score, _, avg_tokens, avg_time = eval_marvel(
+multi_score, _, avg_tokens, avg_time = eval_mars(
     task="gpqa",
     n_problems=100,
     n_reviewers=2,

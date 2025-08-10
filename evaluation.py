@@ -9,7 +9,7 @@ import time
 import os
 
 
-def eval_marvel(task="gsm", model=None, n_problems=5, n_reviewers=3, selected=True, voting=False, verbosity=0):
+def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=3, selected=True, voting=False, verbosity=0):
     """
     Evaluate the MARVEL framework on certain task.
     """
@@ -38,7 +38,7 @@ def eval_marvel(task="gsm", model=None, n_problems=5, n_reviewers=3, selected=Tr
         answer = extract_answer(gt_answer, task)
         # Run MARVEL pipeline
         runner = PipelineRunner(task=task, model=model)
-        review_history = runner.run_marvel_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
+        review_history = runner.run_mars_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
         single_agent_answer = extract_pred_answer(review_history['author_response'], task)
         if voting:
             multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
@@ -119,7 +119,6 @@ def eval_single_agent(task="gsm", model=None, n_problems=5, selected=True, verbo
 
 def eval_self_reflection(task="gsm", model=None, n_problems=5, selected=True, verbosity=0):
     all_questions = load_data(task=task)
-    single_scores = []
     scores = []
     token_usages = []
     records = []  # record the full review process of each question
@@ -144,17 +143,12 @@ def eval_self_reflection(task="gsm", model=None, n_problems=5, selected=True, ve
         pred_answer = extract_pred_answer(reflection_history['reflection'], task)
         if verbosity:
             print("GT answer and predicted answer: ", answer, pred_answer)
-        if initial_answer is not None and initial_answer == answer:
-            single_scores.append(int(1))
-        else:
-            single_scores.append(int(0))
         if pred_answer is not None and pred_answer == answer:
             scores.append(int(1))
         else:
             scores.append(int(0))
             hard_collections.append(i)
         reflection_history['id'] = int(i)
-        reflection_history['single_score'] = single_scores[-1]
         reflection_history['score'] = scores[-1]
         token_usages.append(reflection_history['total_tokens'])
         records.append(reflection_history)
@@ -163,7 +157,7 @@ def eval_self_reflection(task="gsm", model=None, n_problems=5, selected=True, ve
     date_str = date.today().isoformat()
     save_name = f"baselines/reflection_logs/{task}_{date_str}.jsonl"
     save_jsonl(records, save_name)
-    return sum(single_scores), sum(scores), hard_collections, np.mean(token_usages), avg_time
+    return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
 
 def eval_self_consistency(task="gsm", model=None, n_problems=5, n_samples=3, selected=True, verbosity=0):

@@ -9,7 +9,7 @@ class PipelineRunner:
         self.templates = PromptBuilder(task=task)
         self.model = model
 
-    def run_marvel_pipeline(self, user_query, n_reviewers=3, verbosity=0):
+    def run_mars_pipeline(self, user_query, n_reviewers=3, verbosity=0):
         author = create_author_agent(model=self.model)
         reviewers = create_reviewer_agents(n_reviewers, model=self.model)
         meta = create_meta_reviewer_agent(model=self.model)
