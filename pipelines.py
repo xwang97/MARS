@@ -1,17 +1,18 @@
 from custom_agents import create_author_agent, create_reviewer_agents, create_meta_reviewer_agent
-from utils import extract_math_decision, extract_pred_answer
+from utils import extract_meta_decision, extract_pred_answer
 from prompt_templates import PromptBuilder
 
 
 class PipelineRunner:
-    def __init__(self, task="gsm"):
+    def __init__(self, task="gsm", model=None):
         self.task = task
         self.templates = PromptBuilder(task=task)
+        self.model = model
 
     def run_marvel_pipeline(self, user_query, n_reviewers=3, verbosity=0):
-        author = create_author_agent()
-        reviewers = create_reviewer_agents(n_reviewers)
-        meta = create_meta_reviewer_agent()
+        author = create_author_agent(model=self.model)
+        reviewers = create_reviewer_agents(n_reviewers, model=self.model)
+        meta = create_meta_reviewer_agent(model=self.model)
         author_history = []
 
         # Step 1: Author answers
@@ -48,7 +49,7 @@ class PipelineRunner:
         review_history["meta_review"] = meta_decision
 
         # Step 4: Send feedback or return final answer
-        decision = extract_math_decision(meta_decision)
+        decision = extract_meta_decision(meta_decision)
         if decision.lower() == "wrong":
             feedback_input = self.templates.construct_feedback_prompt(meta_decision)
             author_history.append(feedback_input)
@@ -64,7 +65,7 @@ class PipelineRunner:
         return review_history
 
     def run_single_agent_pipeline(self, user_query, verbosity=0):
-        agent = create_author_agent()
+        agent = create_author_agent(model=self.model)
         author_input = self.templates.construct_initial_prompt(user_query)
         response = agent.run(author_input)
         if verbosity:
@@ -73,7 +74,7 @@ class PipelineRunner:
         return agent_history
 
     def run_self_reflection_pipeline(self, user_query, verbosity=0):
-        agent = create_author_agent()
+        agent = create_author_agent(model=self.model)
         # Step 1: Initial answer
         author_input = self.templates.construct_initial_prompt(user_query)
         response = agent.run(author_input)
@@ -88,9 +89,21 @@ class PipelineRunner:
         reflection_history = {"response": response, "reflection": reflection, "total_tokens": agent.total_tokens}
         return reflection_history
 
+    def run_self_consistency_pipeline(self, user_query, num_samples=3, verbosity=0):
+        agent = create_author_agent(model=self.model)
+        responses = []
+        for i in range(num_samples):
+            author_input = self.templates.construct_initial_prompt(user_query)
+            response = agent.run(author_input)
+            responses.append(response)
+            if verbosity:
+                print(f"\n=== Sample {i+1} Answer ===\n", response)
+        sc_history = {"responses": responses, "total_tokens": agent.total_tokens}
+        return sc_history
+
     def run_debate_pipeline(self, user_query, num_agents=3, num_rounds=2, verbosity=0) -> list[list[dict]]:
         agents = [
-            create_author_agent(name=f"Agent_{i+1}")
+            create_author_agent(name=f"Agent_{i+1}", model=self.model)
             for i in range(num_agents)
         ]
         agent_histories = [[] for _ in range(num_agents)]

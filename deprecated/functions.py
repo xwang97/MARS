@@ -53,3 +53,58 @@ def eval_simple_math(n_problems=10):
         else:
             scores.append(0)
     return sum(scores)
+
+
+###################################################
+# 1. Hallucination detection related
+###################################################
+def extract_decision_label(text: str | dict) -> int:
+    """
+    Extract decision from the final output of the detection task. Return 1 for
+    non-factual, 0 for factual or bad-formatted answer.
+    """
+    if isinstance(text, dict):
+        decision = text['Decision']
+        if decision == "non-factual":
+            return 1
+    else:
+        match = re.search(r'Decision:\s*(\w+[-]?\w*)', text)
+        if match:
+            decision = match.group(1)
+            if decision == "non-factual":
+                return 1
+    return 0
+
+
+def get_selfcheck_data(n_samples=1000):
+    """
+    Load the selfcheckGPT dataset from huggingface hub.
+    """
+    dataset = datasets.load_dataset("potsawee/wiki_bio_gpt3_hallucination")
+    return dataset["evaluation"]
+
+
+def extract_math_decision(text) -> str:
+    """
+    Extracts decision of the meta-reviewer for a math problem.
+    """
+    if isinstance(text, dict):
+        if "Decision" in text.keys():
+            decision = text['Decision']
+        elif "decision" in text.keys():
+            decision = text['decision']
+        else:
+            decision = None
+    else:
+        text = str(text)
+        match = re.search(r'Decision:\s*(\w+[-]?\w*)', text)
+        if match:
+            decision = match.group(1)
+        else:
+            match = re.search(r"right|wrong|Right|Wrong", text)
+            if match:
+                return match.group(0)
+            return "right"
+    if decision is None:
+        decision = "right"
+    return decision

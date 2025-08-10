@@ -8,7 +8,7 @@ from fractions import Fraction
 import random
 
 ###################################################
-# 0. General usage
+# 1. General usage
 ###################################################
 def read_jsonl(path: str):
     with open(path) as fh:
@@ -108,38 +108,36 @@ def is_correct(pred_answer, answer, task):
     if task == "mmlu" or task=="gpqa":
         return pred_answer == answer
 
+
 ###################################################
-# 1. Hallucination detection related
+# 2. Answer extraction
 ###################################################
-def extract_decision_label(text: str | dict) -> int:
+def extract_meta_decision(text) -> str:
     """
-    Extract decision from the final output of the detection task. Return 1 for
-    non-factual, 0 for factual or bad-formatted answer.
+    Extracts decision of the meta-reviewer.
     """
     if isinstance(text, dict):
-        decision = text['Decision']
-        if decision == "non-factual":
-            return 1
+        if "Decision" in text.keys():
+            decision = text['Decision']
+        elif "decision" in text.keys():
+            decision = text['decision']
+        else:
+            decision = None
     else:
+        text = str(text)
         match = re.search(r'Decision:\s*(\w+[-]?\w*)', text)
         if match:
             decision = match.group(1)
-            if decision == "non-factual":
-                return 1
-    return 0
+        else:
+            match = re.search(r"right|wrong|Right|Wrong", text)
+            if match:
+                return match.group(0)
+            return "right"
+    if decision is None:
+        decision = "right"
+    return decision
 
 
-def get_selfcheck_data(n_samples=1000):
-    """
-    Load the selfcheckGPT dataset from huggingface hub.
-    """
-    dataset = datasets.load_dataset("potsawee/wiki_bio_gpt3_hallucination")
-    return dataset["evaluation"]
-
-
-###################################################
-# 2. Simple math problems related
-###################################################
 def parse_simple_math_answer(sentence):
     sentence = str(sentence)
     parts = sentence.split(" ")
@@ -151,12 +149,9 @@ def parse_simple_math_answer(sentence):
             continue
 
 
-###################################################
-# 3. GSM related
-###################################################
 def extract_answer(text, task):
     """
-    Extract answer from the given sample.
+    Extract ground truth answer from the given sample.
     """
     if task in ["gsm", "ciar", "gsm_hard"]:
         if isinstance(text, int) or isinstance(text, float):
@@ -221,46 +216,20 @@ def extract_pred_answer_majority(review_history, n_reviewers, task):
     ans_list = []
     initial_answer = extract_pred_answer(review_history['author_response'], task)
     updated_answer = None
-    # ans_list.append(initial_answer)  # uncomment when using voting
+    ans_list.append(initial_answer)  # uncomment when using voting
     if 'author_rebuttal' not in review_history:
         ans_list.append(initial_answer)
     else:
         updated_answer = extract_pred_answer(review_history['author_rebuttal'], task)
         ans_list.append(updated_answer)
-    # for i in range(n_reviewers):  # uncomment when using voting
-    #     review = review_history[f"review{i+1}"]
-    #     ans_list.append(extract_pred_answer(review, task))
-    # ans_list.append(extract_pred_answer(review_history['meta_review'], task))  # used for voting
+    for i in range(n_reviewers):  # uncomment when using voting
+        review = review_history[f"review{i+1}"]
+        ans_list.append(extract_pred_answer(review, task))
+    ans_list.append(extract_pred_answer(review_history['meta_review'], task))  # used for voting
     majority = most_frequent_element(ans_list)
     if majority is None:
         return initial_answer if updated_answer is None else updated_answer
     return majority
-
-
-def extract_math_decision(text) -> str:
-    """
-    Extracts decision of the meta-reviewer for a math problem.
-    """
-    if isinstance(text, dict):
-        if "Decision" in text.keys():
-            decision = text['Decision']
-        elif "decision" in text.keys():
-            decision = text['decision']
-        else:
-            decision = None
-    else:
-        text = str(text)
-        match = re.search(r'Decision:\s*(\w+[-]?\w*)', text)
-        if match:
-            decision = match.group(1)
-        else:
-            match = re.search(r"right|wrong|Right|Wrong", text)
-            if match:
-                return match.group(0)
-            return "right"
-    if decision is None:
-        decision = "right"
-    return decision
 
 
 def extract_debate_answer(agent_histories, task):

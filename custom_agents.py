@@ -68,28 +68,28 @@ class OpenAIAgent:
 
 
 # ======== Define the review related agents ==================
-def create_author_agent(name="Author"):
+def create_author_agent(model=None):
     return OpenAIAgent(
-        name=name,
-        model=author_llm,
+        name="Author",
+        model=author_llm if model is None else model
     )
 
 
-def create_reviewer_agents(num_reviewers: int = 3):
+def create_reviewer_agents(num_reviewers: int = 3, model=None):
     reviewers = []
     for i in range(num_reviewers):
         # llm = random.choice(reviewer_llms)
         llm = reviewer_llms[i]
         reviewer = OpenAIAgent(
             name=f"Reviewer_{i+1}",
-            model=llm,
+            model=llm if model is None else model
         )
         reviewers.append(reviewer)
     return reviewers
 
 
-def create_meta_reviewer_agent():
+def create_meta_reviewer_agent(model=None):
     return OpenAIAgent(
         name="MetaReviewer",
-        model=meta_llm,
+        model=meta_llm if model is None else model
     )

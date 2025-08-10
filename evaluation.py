@@ -1,6 +1,6 @@
 from pipelines import PipelineRunner
 from utils import extract_answer, extract_pred_answer, save_jsonl, load_data, extract_debate_answer, extract_pred_answer_majority
-from utils import is_correct
+from utils import is_correct, most_frequent_element
 from tqdm import tqdm
 import numpy as np
 from datetime import date
@@ -9,7 +9,7 @@ import time
 import os
 
 
-def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosity=0):
+def eval_marvel(task="gsm", model=None, n_problems=5, n_reviewers=3, selected=True, voting=False, verbosity=0):
     """
     Evaluate the MARVEL framework on certain task.
     """
@@ -37,10 +37,13 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
             print("===================")
         answer = extract_answer(gt_answer, task)
         # Run MARVEL pipeline
-        runner = PipelineRunner(task=task)
+        runner = PipelineRunner(task=task, model=model)
         review_history = runner.run_marvel_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
         single_agent_answer = extract_pred_answer(review_history['author_response'], task)
-        multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
+        if voting:
+            multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
+        else:
+            multi_agent_answer = extract_pred_answer(review_history['author_rebuttal'], task) if 'author_rebuttal' in review_history else single_agent_answer
         if is_correct(multi_agent_answer, answer, task):
             multi_agent_scores.append(1)
         else:
@@ -67,7 +70,7 @@ def eval_marvel(task="gsm", n_problems=5, n_reviewers=3, selected=False, verbosi
     return sum(multi_agent_scores), rectified_collections, np.mean(token_usages), avg_time
 
 
-def eval_single_agent(task="gsm", n_problems=5, selected=True, verbosity=0):
+def eval_single_agent(task="gsm", model=None, n_problems=5, selected=True, verbosity=0):
     all_questions = load_data(task=task)
     scores = []
     token_usages = []
@@ -89,7 +92,7 @@ def eval_single_agent(task="gsm", n_problems=5, selected=True, verbosity=0):
             print("===================")
         answer = extract_answer(gt_answer, task)
         # Run single-agent pipeline
-        runner = PipelineRunner(task=task)
+        runner = PipelineRunner(task=task, model=model)
         agent_history = runner.run_single_agent_pipeline(question, verbosity=verbosity)
         pred_answer = extract_pred_answer(agent_history['response'], task)
         if verbosity:
@@ -114,7 +117,7 @@ def eval_single_agent(task="gsm", n_problems=5, selected=True, verbosity=0):
     return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
 
-def eval_self_reflection(task="gsm", n_problems=5, selected=True, verbosity=0):
+def eval_self_reflection(task="gsm", model=None, n_problems=5, selected=True, verbosity=0):
     all_questions = load_data(task=task)
     single_scores = []
     scores = []
@@ -135,7 +138,7 @@ def eval_self_reflection(task="gsm", n_problems=5, selected=True, verbosity=0):
             print("===================")
         answer = extract_answer(gt_answer, task)
         # Run reflection pipeline
-        runner = PipelineRunner(task=task)
+        runner = PipelineRunner(task=task, model=model)
         reflection_history = runner.run_self_reflection_pipeline(question, verbosity=verbosity)
         initial_answer = extract_pred_answer(reflection_history['response'], task)
         pred_answer = extract_pred_answer(reflection_history['reflection'], task)
@@ -163,7 +166,53 @@ def eval_self_reflection(task="gsm", n_problems=5, selected=True, verbosity=0):
     return sum(single_scores), sum(scores), hard_collections, np.mean(token_usages), avg_time
 
 
-def eval_debate(task="gsm", n_problems=5, n_agents=3, selected=True, verbosity=0):
+def eval_self_consistency(task="gsm", model=None, n_problems=5, n_samples=3, selected=True, verbosity=0):
+    all_questions = load_data(task=task)
+    scores = []
+    token_usages = []
+    records = []  # record the full review process of each question
+    hard_collections = []  # record the incorrectly answered questions
+    if selected:
+        question_list = list(np.loadtxt(f"data/{task}/question_ids.txt").astype(int))
+    else:
+        question_list = sorted(random.sample(range(len(all_questions)), n_problems))
+    start_time = time.time()
+    for i in tqdm(question_list):
+        question = all_questions[i]["question"]
+        gt_answer = all_questions[i]["answer"]
+        if verbosity:
+            print("question: ", question)
+            print("gt_answer: ", gt_answer)
+            print("===================")
+        answer = extract_answer(gt_answer, task)
+        # Run self-consistency pipeline
+        runner = PipelineRunner(task=task, model=model)
+        consistency_history = runner.run_self_consistency_pipeline(question, num_samples=n_samples, verbosity=verbosity)
+        sampled_answers = [extract_pred_answer(response, task) for response in consistency_history['responses']]
+        pred_answer = most_frequent_element(sampled_answers)
+        if verbosity:
+            print("GT answer and predicted answer: ", answer, pred_answer)
+            print("\n")
+        if pred_answer is not None and is_correct(pred_answer, answer, task):
+            scores.append(int(1))
+        else:
+            scores.append(int(0))
+            hard_collections.append(i)
+        consistency_history['id'] = int(i)
+        consistency_history['score'] = int(scores[-1])
+        consistency_history['question'] = question
+        consistency_history['gt_answer'] = gt_answer
+        token_usages.append(consistency_history['total_tokens'])
+        records.append(consistency_history)
+    end_time = time.time()
+    avg_time = (end_time - start_time) / len(question_list)
+    date_str = date.today().isoformat()
+    save_name = f"baselines/consistency_logs/{task}_{date_str}.jsonl"
+    save_jsonl(records, save_name)
+    return sum(scores), hard_collections, np.mean(token_usages), avg_time
+
+
+def eval_debate(task="gsm", model=None, n_problems=5, n_agents=3, selected=True, verbosity=0):
     all_questions = load_data(task=task)
     scores = []
     token_usages = []
@@ -183,7 +232,7 @@ def eval_debate(task="gsm", n_problems=5, n_agents=3, selected=True, verbosity=0
             print("===================")
         answer = extract_answer(gt_answer, task)
         # Run debate pipeline
-        runner = PipelineRunner(task=task)
+        runner = PipelineRunner(task=task, model=model)
         debate_history, total_tokens = runner.run_debate_pipeline(question, num_agents=n_agents, verbosity=verbosity)
         pred_answer = extract_debate_answer(debate_history, task)  # need update !!!
         if verbosity:
