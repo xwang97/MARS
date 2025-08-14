@@ -97,6 +97,16 @@ def load_data(task):
             ans = sample["solution"]
             float_answer = float(ans)
             all_questions.append({"question": question, "answer": float_answer})
+    if task == "stg":
+        all_questions = []
+        with open("data/stg/test_all.json", "r") as f:
+            data = json.load(f)
+        for sample in data:
+            question = sample['problem']
+            ans = sample["solution"]
+            question = question + ": A) true, B) false"
+            answer = "A" if ans == "true" else "B"
+            all_questions.append({"question": question, "answer": answer})
     return all_questions
 
 
@@ -105,7 +115,7 @@ def is_correct(pred_answer, answer, task):
         if pred_answer is not None:
             return abs(pred_answer-answer) <= 0.01
         return False
-    if task == "mmlu" or task=="gpqa":
+    if task in ["mmlu", "gpqa", "stg"]:
         return pred_answer == answer
 
 
@@ -166,7 +176,7 @@ def extract_answer(text, task):
         else:
             return float(parse_simple_math_answer(text))
         return INVALID_ANS
-    if task == "mmlu" or task=="gpqa":
+    if task in ["mmlu", "gpqa", "stg"]:
         return text[-1]
 
 
@@ -193,7 +203,7 @@ def extract_pred_answer(text, task):
                 except Exception:
                     continue
         return None
-    if task == "mmlu" or task=="gpqa":
+    if task in ["mmlu", "gpqa", "stg"]:
         # 1. Try direct "Answer: X" line
         match = re.search(r'Answer:\s*([ABCD])[\).]?', text, re.IGNORECASE)
         if match:

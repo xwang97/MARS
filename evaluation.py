@@ -9,7 +9,7 @@ import time
 import os
 
 
-def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=3, selected=True, voting=False, verbosity=0):
+def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True, voting=False, verbosity=0):
     """
     Evaluate the MARVEL framework on certain task.
     """

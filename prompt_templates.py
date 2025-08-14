@@ -15,7 +15,7 @@ class PromptBuilder:
                     "Your final answer must be a single numerical number at the end of the response.\n\n"
                 )
             }
-        if self.task == "mmlu" or self.task=="gpqa":
+        if self.task in ["mmlu", "gpqa", "stg"]:
             author_prompt = {
                 "role": "user",
                 "content": (
@@ -51,7 +51,7 @@ class PromptBuilder:
                 "2. **Accuracy**: Check whether each computation gets the correct result.\n"
                 f"{output_format}"
             )
-        if self.task == "mmlu" or self.task=="gpqa":
+        if self.task in ["mmlu", "gpqa", "stg"]:
             reviewer_prompt = (
                 "You are a reviewer. The author has submitted the following answer to a problem:\n\n"
                 f"Question: {user_query}\n\n"
@@ -59,7 +59,7 @@ class PromptBuilder:
                 "Please evaluate the correctness of the author's response. Follow the instructions and format strictly:\n\n"
                 "---\n\n"
                 "Evaluation criteria:\n\n"
-                "**Faithfulness**: check whether the author's answers is consistent with facts you have known.\n"
+                "**Faithfulness**: check whether the author's answers and thoughts are consistent with facts you have known.\n"
                 f"{output_format}"
             )
         return reviewer_prompt
@@ -85,9 +85,7 @@ class PromptBuilder:
                 f"{output_format}"
                 "Answer: [your recommended single numerical answer]\n\n"
             )
-            # "Answer: [your recommended single numerical answer]\n\n"
-        if self.task == "mmlu" or self.task=="gpqa":
-            # Add your code here
+        if self.task in ["mmlu", "gpqa", "stg"]:
             meta_prompt = (
                 "You are the meta-reviewer. The author has submitted an answer to a problem.\n\n"
                 f"Question: {user_query}\n\n"
@@ -98,7 +96,7 @@ class PromptBuilder:
                 "Do not only rely on the reviewers, you must also think by yourself.\n\n"
                 "Provide your conclusion in the following format:\n"
                 f"{output_format}"
-                "Answer: [your recommended single numerical answer]\n\n"
+                "Answer: [your recommended answer]\n\n"
             )
         return meta_prompt
 
@@ -108,20 +106,21 @@ class PromptBuilder:
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
                     "--- Meta-reviewer Feedback ---\n"
                     f"{meta_decision}\n\n."
-                    "If you agree with the meta-reviewer's suggestions, revise your answer accordingly.\n"
+                    "If you strongly agree with the meta-reviewer's suggestions, revise your answer accordingly.\n"
                     "If you disagree, insist on your initial answer and repeat it.\n\n"
                     "Make sure to state your thoughts and final answer with this format:\n"
                     "Reasons: [your reasons of accepting or rejecting the suggestions]\n"
                     "Answer: [the final numerical answer]\n\n"
                 )
-        if self.task == "mmlu" or self.task=="gpqa":
+        if self.task in ["mmlu", "gpqa", "stg"]:
             # Add your code here
             feedback_prompt = (
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
                     "--- Meta-reviewer Feedback ---\n"
                     f"{meta_decision}\n\n."
                     "If you strongly agree with the meta-reviewer's suggestions, revise your answer accordingly.\n"
-                    "If you disagree, insist on your initial answer and repeat it.\n\n"
+                    "If you disagree, insist on your initial answer and repeat it.\n"
+                    "Do not always trust the meta-reviewer, you must think by yourself whether to trust the suggestions.\n\n"
                     "Make sure to state your reasons and final answer with this format:\n"
                     "Reasons: [your reasons of accepting or rejecting the suggestions]\n"
                     "Answer: [the final single captial letter answer in the form (X). X is chosed from [A,B,C,D]]\n\n"
@@ -143,7 +142,7 @@ class PromptBuilder:
                 "Mistakes (if any): \n\n"
                 "Answer: [the final single numerical answer]\n\n"
             )
-        if self.task == "mmlu" or self.task=="gpqa":
+        if self.task in ["mmlu", "gpqa", "stg"]:
             # Add your code here
             reflection_prompt = (
                 "You wrote the following response to a problem:\n\n"
@@ -185,7 +184,7 @@ class PromptBuilder:
                 "Your final answer must be a single numerical number at the end of the response.\n\n"
             )
         
-        if self.task == "mmlu" or self.task=="gpqa":
+        if self.task in ["mmlu", "gpqa", "stg"]:
             if not other_agents_responses:
                 return {
                     "role": "user",
