@@ -63,6 +63,18 @@ def load_data(task):
                         "answer":answer}
                 all_questions.append(single_que)
         # print(all_questions[1]["answer"])
+    if task == "mmlupro":
+        all = read_jsonl('data/mmlupro/test.json')
+        all_questions = []
+        for sample in all:
+            question = sample['question']
+            options = sample['options']
+            answer = sample['answer']
+            question_op = question + ":"
+            options_str = ", ".join([f"{chr(65+i)}) {opt}" for i, opt in enumerate(options)])
+            question_op = f"{question_op} {options_str}"
+            single_que = {"question": question_op, "answer": answer}
+            all_questions.append(single_que)
     if task=="gpqa":
         all_questions = [] 
         question_df = pd.read_csv('data/gpqa/gpqa_main.csv')
@@ -107,6 +119,14 @@ def load_data(task):
             question = question + ": A) true, B) false"
             answer = "A" if ans == "true" else "B"
             all_questions.append({"question": question, "answer": answer})
+    if task == "svamp":
+        all_questions = []
+        with open("data/svamp/test_all.json", "r") as f:
+            data = json.load(f)
+        for sample in data:
+            question = sample['problem']
+            ans = sample["solution"]
+            all_questions.append({"question": question, "answer": ans})
     return all_questions
 
 
