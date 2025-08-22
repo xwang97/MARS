@@ -111,11 +111,11 @@ def load_data(task):
 
 
 def is_correct(pred_answer, answer, task):
-    if task in ["gsm", "ciar", "gsm_hard"]:
+    if task in ["gsm", "ciar", "gsm_hard", "svamp"]:
         if pred_answer is not None:
             return abs(pred_answer-answer) <= 0.01
         return False
-    if task in ["mmlu", "gpqa", "stg"]:
+    if task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
         return pred_answer == answer
 
 
@@ -163,7 +163,7 @@ def extract_answer(text, task):
     """
     Extract ground truth answer from the given sample.
     """
-    if task in ["gsm", "ciar", "gsm_hard"]:
+    if task in ["gsm", "ciar", "gsm_hard", "svamp"]:
         if isinstance(text, int) or isinstance(text, float):
             return float(text)
         ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
@@ -176,7 +176,7 @@ def extract_answer(text, task):
         else:
             return float(parse_simple_math_answer(text))
         return INVALID_ANS
-    if task in ["mmlu", "gpqa", "stg"]:
+    if task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
         return text[-1]
 
 
@@ -184,7 +184,7 @@ def extract_pred_answer(text, task):
     """
     Extract answer from the model response
     """
-    if task in ["gsm", "ciar", "gsm_hard"]:
+    if task in ["gsm", "ciar", "gsm_hard", "svamp"]:
         if not isinstance(text, str):
             text = str(text)
         match = re.search(r"(?i)answer:(.*)", text, flags=re.DOTALL)
@@ -203,7 +203,7 @@ def extract_pred_answer(text, task):
                 except Exception:
                     continue
         return None
-    if task in ["mmlu", "gpqa", "stg"]:
+    if task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
         # 1. Try direct "Answer: X" line
         match = re.search(r'Answer:\s*([ABCD])[\).]?', text, re.IGNORECASE)
         if match:

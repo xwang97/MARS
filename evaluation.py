@@ -14,7 +14,8 @@ def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True
     Evaluate the MARVEL framework on certain task.
     """
     all_questions = load_data(task=task)
-    multi_agent_scores = []  # scores after multi-agent review
+    mars_scores = []  # scores after multi-agent review
+    mars_scores_vote = []
     token_usages = []  # total token consumptions of each question
     records = []  # record the full review process of each question
     rectified_collections = []  # record initially wrong but rectified by reviewers questions
@@ -40,21 +41,27 @@ def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True
         runner = PipelineRunner(task=task, model=model)
         review_history = runner.run_mars_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
         single_agent_answer = extract_pred_answer(review_history['author_response'], task)
-        if voting:
-            multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
+        # if voting:
+        #     multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
+        # else:
+        #     multi_agent_answer = extract_pred_answer(review_history['author_rebuttal'], task) if 'author_rebuttal' in review_history else single_agent_answer
+        mars_answer = extract_pred_answer(review_history['author_rebuttal'], task) if 'author_rebuttal' in review_history else single_agent_answer
+        mars_answer_vote = extract_pred_answer_majority(review_history, n_reviewers, task)
+        if is_correct(mars_answer, answer, task):
+            mars_scores.append(1)
         else:
-            multi_agent_answer = extract_pred_answer(review_history['author_rebuttal'], task) if 'author_rebuttal' in review_history else single_agent_answer
-        if is_correct(multi_agent_answer, answer, task):
-            multi_agent_scores.append(1)
+            mars_scores.append(0)
+        if is_correct(mars_answer_vote, answer, task):
+            mars_scores_vote.append(1)
         else:
-            multi_agent_scores.append(0)
+            mars_scores_vote.append(0)
         if verbosity:
-            print("GT, single-agent, and multi-agent answer: ", answer, single_agent_answer, multi_agent_answer)
+            print("GT, single-agent, and multi-agent answer: ", answer, single_agent_answer, mars_answer)
             print("\n")
-        if not is_correct(single_agent_answer, answer, task) and is_correct(multi_agent_answer, answer, task):
+        if not is_correct(single_agent_answer, answer, task) and is_correct(mars_answer, answer, task):
             rectified_collections.append(i)
         review_history['id'] = int(i)
-        review_history['multi_score'] = int(multi_agent_scores[-1])
+        review_history['multi_score'] = int(mars_scores[-1])
         review_history['question'] = question
         review_history['gt_answer'] = gt_answer
         token_usages.append(review_history['total_tokens'])
@@ -67,7 +74,7 @@ def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True
     if not os.path.exists(f"data/{task}/records"):
         os.makedirs(f"data/{task}/records")
     save_jsonl(records, save_name)
-    return sum(multi_agent_scores), rectified_collections, np.mean(token_usages), avg_time
+    return sum(mars_scores), sum(mars_scores_vote), rectified_collections, np.mean(token_usages), avg_time
 
 
 def eval_single_agent(task="gsm", model=None, n_problems=5, selected=True, verbosity=0):
