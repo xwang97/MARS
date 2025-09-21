@@ -15,7 +15,6 @@ def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True
     """
     all_questions = load_data(task=task)
     mars_scores = []  # scores after multi-agent review
-    mars_scores_vote = []
     token_usages = []  # total token consumptions of each question
     records = []  # record the full review process of each question
     rectified_collections = []  # record initially wrong but rectified by reviewers questions
@@ -41,20 +40,11 @@ def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True
         runner = PipelineRunner(task=task, model=model)
         review_history = runner.run_mars_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
         single_agent_answer = extract_pred_answer(review_history['author_response'], task)
-        # if voting:
-        #     multi_agent_answer = extract_pred_answer_majority(review_history, n_reviewers, task)
-        # else:
-        #     multi_agent_answer = extract_pred_answer(review_history['author_rebuttal'], task) if 'author_rebuttal' in review_history else single_agent_answer
         mars_answer = extract_pred_answer(review_history['author_rebuttal'], task) if 'author_rebuttal' in review_history else single_agent_answer
-        mars_answer_vote = extract_pred_answer_majority(review_history, n_reviewers, task)
         if is_correct(mars_answer, answer, task):
             mars_scores.append(1)
         else:
             mars_scores.append(0)
-        if is_correct(mars_answer_vote, answer, task):
-            mars_scores_vote.append(1)
-        else:
-            mars_scores_vote.append(0)
         if verbosity:
             print("GT, single-agent, and multi-agent answer: ", answer, single_agent_answer, mars_answer)
             print("\n")
@@ -74,7 +64,7 @@ def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True
     if not os.path.exists(f"data/{task}/records"):
         os.makedirs(f"data/{task}/records")
     save_jsonl(records, save_name)
-    return sum(mars_scores), sum(mars_scores_vote), rectified_collections, np.mean(token_usages), avg_time
+    return sum(mars_scores), rectified_collections, np.mean(token_usages), avg_time
 
 
 def eval_single_agent(task="gsm", model=None, n_problems=5, selected=True, verbosity=0):
@@ -120,6 +110,8 @@ def eval_single_agent(task="gsm", model=None, n_problems=5, selected=True, verbo
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/single_agent_logs/{task}_{date_str}.jsonl"
+    if not os.path.exists("baselines/single_agent_logs"):
+        os.makedirs("baselines/single_agent_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
@@ -163,6 +155,8 @@ def eval_self_reflection(task="gsm", model=None, n_problems=5, selected=True, ve
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/reflection_logs/{task}_{date_str}.jsonl"
+    if not os.path.exists("baselines/reflection_logs"):
+        os.makedirs("baselines/reflection_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
@@ -209,6 +203,8 @@ def eval_self_consistency(task="gsm", model=None, n_problems=5, n_samples=3, sel
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/consistency_logs/{task}_{date_str}.jsonl"
+    if not os.path.exists("baselines/consistency_logs"):
+        os.makedirs("baselines/consistency_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
@@ -235,7 +231,7 @@ def eval_debate(task="gsm", model=None, n_problems=5, n_agents=3, selected=True,
         # Run debate pipeline
         runner = PipelineRunner(task=task, model=model)
         debate_history, total_tokens = runner.run_debate_pipeline(question, num_agents=n_agents, verbosity=verbosity)
-        pred_answer = extract_debate_answer(debate_history, task)  # need update !!!
+        pred_answer = extract_debate_answer(debate_history, task)
         if verbosity:
             print("GT answer and predicted answer: ", answer, pred_answer)
         if pred_answer is not None and is_correct(pred_answer, answer, task=task):
@@ -249,5 +245,7 @@ def eval_debate(task="gsm", model=None, n_problems=5, n_agents=3, selected=True,
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/debate_logs/{task}_{date_str}.jsonl"
+    if not os.path.exists("baselines/debate_logs"):
+        os.makedirs("baselines/debate_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time

@@ -3,7 +3,7 @@ class PromptBuilder:
         self.task = task
 
     def construct_author_prompt(self, user_query):
-        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+        if self.task in ["gsm"]:
             author_prompt = {
                 "role": "user",
                 "content": (
@@ -15,7 +15,7 @@ class PromptBuilder:
                     "Your final answer must be a single numerical number at the end of the response.\n\n"
                 )
             }
-        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+        if self.task in ["mmlu", "gpqa"]:
             author_prompt = {
                 "role": "user",
                 "content": (
@@ -39,7 +39,7 @@ class PromptBuilder:
             "Answer: [your recommended answer]"
             "---\n\n"
         )
-        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+        if self.task in ["gsm"]:
             reviewer_prompt = (
                 "You are a reviewer. The author has submitted the following answer to a math problem:\n\n"
                 f"Question: {user_query}\n\n"
@@ -51,7 +51,7 @@ class PromptBuilder:
                 "2. **Accuracy**: Check whether each computation gets the correct result.\n"
                 f"{output_format}"
             )
-        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+        if self.task in ["mmlu", "gpqa"]:
             reviewer_prompt = (
                 "You are a reviewer. The author has submitted the following answer to a problem:\n\n"
                 f"Question: {user_query}\n\n"
@@ -71,7 +71,7 @@ class PromptBuilder:
             "Justification: [reasons of your decision]\n"
             "Suggestions: [your suggestions for updating the answer, only needed when decision is wrong]\n"
         )
-        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+        if self.task in ["gsm"]:
             meta_prompt = (
                 "You are the meta-reviewer. The author has submitted an answer to a math problem.\n\n"
                 f"Question: {user_query}\n\n"
@@ -86,7 +86,7 @@ class PromptBuilder:
                 f"{output_format}"
                 "Answer: [your recommended single numerical answer]\n\n"
             )
-        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+        if self.task in ["mmlu", "gpqa"]:
             meta_prompt = (
                 "You are the meta-reviewer. The author has submitted an answer to a problem.\n\n"
                 f"Question: {user_query}\n\n"
@@ -102,7 +102,7 @@ class PromptBuilder:
         return meta_prompt
 
     def construct_feedback_prompt(self, meta_decision):
-        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+        if self.task in ["gsm"]:
             feedback_prompt = (
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
                     "--- Meta-reviewer Feedback ---\n"
@@ -114,7 +114,7 @@ class PromptBuilder:
                     "Thoughts: [your new step-by-step computation process after considering the suggestions]\n"
                     "Answer: [the final numerical answer]\n\n"
                 )
-        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+        if self.task in ["mmlu", "gpqa"]:
             # Add your code here
             feedback_prompt = (
                     "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
@@ -134,7 +134,7 @@ class PromptBuilder:
         return self.construct_author_prompt(user_query)["content"]
 
     def construct_reflection_prompt(self, user_query, response):
-        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+        if self.task in ["gsm"]:
             reflection_prompt = (
                 "You wrote the following response to a math problem:\n\n"
                 f"Qustion: {user_query}\n\n"
@@ -145,7 +145,7 @@ class PromptBuilder:
                 "Mistakes (if any): \n\n"
                 "Answer: [the final single numerical answer]\n\n"
             )
-        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+        if self.task in ["mmlu", "gpqa"]:
             # Add your code here
             reflection_prompt = (
                 "You wrote the following response to a problem:\n\n"
@@ -160,7 +160,7 @@ class PromptBuilder:
         return reflection_prompt
 
     def construct_debate_prompt(self, other_agents_responses, user_query, response_idx):
-        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+        if self.task in ["gsm"]:
             if not other_agents_responses:
                 return {
                     "role": "user",
@@ -187,7 +187,7 @@ class PromptBuilder:
                 "Your final answer must be a single numerical number at the end of the response.\n\n"
             )
         
-        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+        if self.task in ["mmlu", "gpqa"]:
             if not other_agents_responses:
                 return {
                     "role": "user",

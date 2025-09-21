@@ -48,7 +48,6 @@ def load_data(task):
     if task == "mmlu":
         tasks = glob("data/mmlu/test/*.csv")
         dfs = [pd.read_csv(task) for task in tasks]
-        # print(len(dfs))
         all_questions=[]
         for df in dfs:
             for i in range(len(df)):
@@ -62,19 +61,6 @@ def load_data(task):
                 single_que={"question":question,
                         "answer":answer}
                 all_questions.append(single_que)
-        # print(all_questions[1]["answer"])
-    if task == "mmlupro":
-        all = read_jsonl('data/mmlupro/test.json')
-        all_questions = []
-        for sample in all:
-            question = sample['question']
-            options = sample['options']
-            answer = sample['answer']
-            question_op = question + ":"
-            options_str = ", ".join([f"{chr(65+i)}) {opt}" for i, opt in enumerate(options)])
-            question_op = f"{question_op} {options_str}"
-            single_que = {"question": question_op, "answer": answer}
-            all_questions.append(single_que)
     if task=="gpqa":
         all_questions = [] 
         question_df = pd.read_csv('data/gpqa/gpqa_main.csv')
@@ -87,55 +73,15 @@ def load_data(task):
             single_que={"question":question,
                         "answer":answer}
             all_questions.append(single_que)
-    if task == "ciar":
-        all_questions = []
-        with open("data/ciar/CIAR.json", "r") as f:
-            data = json.load(f)
-        for sample in data:
-            question = sample['question']
-            for ans in sample["answer"]:
-                try:
-                    float_answer = float(ans.strip().rstrip("%")) / 100 if "%" in ans else float(ans)
-                    all_questions.append({"question": question, "answer": float_answer})
-                    break
-                except ValueError:
-                    continue
-    if task == "gsm_hard":
-        all_questions = []
-        with open("data/gsm_hard/GSM8KHARD.json", "r") as f:
-            data = json.load(f)
-        for sample in data:
-            question = sample['problem']
-            ans = sample["solution"]
-            float_answer = float(ans)
-            all_questions.append({"question": question, "answer": float_answer})
-    if task == "stg":
-        all_questions = []
-        with open("data/stg/test_all.json", "r") as f:
-            data = json.load(f)
-        for sample in data:
-            question = sample['problem']
-            ans = sample["solution"]
-            question = question + ": A) true, B) false"
-            answer = "A" if ans == "true" else "B"
-            all_questions.append({"question": question, "answer": answer})
-    if task == "svamp":
-        all_questions = []
-        with open("data/svamp/test_all.json", "r") as f:
-            data = json.load(f)
-        for sample in data:
-            question = sample['problem']
-            ans = sample["solution"]
-            all_questions.append({"question": question, "answer": ans})
     return all_questions
 
 
 def is_correct(pred_answer, answer, task):
-    if task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+    if task in ["gsm"]:
         if pred_answer is not None:
             return abs(pred_answer-answer) <= 0.01
         return False
-    if task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+    if task in ["mmlu", "gpqa"]:
         return pred_answer == answer
 
 
@@ -183,7 +129,7 @@ def extract_answer(text, task):
     """
     Extract ground truth answer from the given sample.
     """
-    if task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+    if task in ["gsm"]:
         if isinstance(text, int) or isinstance(text, float):
             return float(text)
         ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
@@ -196,7 +142,7 @@ def extract_answer(text, task):
         else:
             return float(parse_simple_math_answer(text))
         return INVALID_ANS
-    if task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+    if task in ["mmlu", "gpqa"]:
         return text[-1]
 
 
@@ -204,7 +150,7 @@ def extract_pred_answer(text, task):
     """
     Extract answer from the model response
     """
-    if task in ["gsm", "ciar", "gsm_hard", "svamp"]:
+    if task in ["gsm"]:
         if not isinstance(text, str):
             text = str(text)
         match = re.search(r"(?i)answer:(.*)", text, flags=re.DOTALL)
@@ -223,7 +169,7 @@ def extract_pred_answer(text, task):
                 except Exception:
                     continue
         return None
-    if task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
+    if task in ["mmlu", "gpqa"]:
         # 1. Try direct "Answer: X" line
         match = re.search(r'Answer:\s*([ABCD])[\).]?', text, re.IGNORECASE)
         if match:

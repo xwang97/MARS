@@ -26,7 +26,6 @@ class OpenAIAgent:
         if "gpt" in model:
             self.client = OpenAI(api_key=openai_api_key)
         elif "llama" in model:
-            # self.client = Cerebras(api_key=cerebras_api_key)
             self.client = OpenAI(api_key=nvidia_api_key, base_url="https://integrate.api.nvidia.com/v1")
         elif "qwen" in model or "gemma" in model or "mistral" in model:
             self.client = OpenAI(api_key=nvidia_api_key, base_url="https://integrate.api.nvidia.com/v1")
@@ -68,9 +67,9 @@ class OpenAIAgent:
 
 
 # ======== Define the review related agents ==================
-def create_author_agent(model=None):
+def create_author_agent(name="Author", model=None):
     return OpenAIAgent(
-        name="Author",
+        name=name,
         model=author_llm if model is None else model
     )
 

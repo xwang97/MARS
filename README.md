@@ -6,7 +6,17 @@ This repository provides the necessary scripts and examples to run the **MARS** 
 
 ## 📘 Introduction
 
-*Coming soon... Stay tuned for an overview of our framework, key ideas, and applications.*
+<p align="center">
+  <img src="./figures/framework.png" alt="MARS Framework" width="700"/>
+</p>
+
+**Figure:** Overview of **MARS** (Multi-Agent Review System). MARS is an efficient multi-agent collaboration framework for LLM reasoning. The framework proceeds in four main steps:  
+1. **Author response** – an author agent generates an initial response to the user query.  
+2. **Review** – multiple reviewer agents independently analyze the author’s response, identify potential issues, and provide structured comments.  
+3. **Meta-Review** – a meta-reviewer aggregates the reviewers’ feedback, reconciles disagreements, and make the final decision. For a rejected response, the meta-reviewer will provide structured feedback and suggestions for answer revision.
+4. **Rebuttal** - upon a rejected meta-decision, the author agent will update its initial answer by following the feedback from the meta-reviewer.   
+
+This pipeline provides a new paradigm for multi-agent-based reasoning. It achieves comparable performance to MAD (Multi-Agent Debate) while reducing token consumption and inference time by ~50%.
 
 ---
 
@@ -53,7 +63,7 @@ Run the full MARS pipeline from a Python terminal:
 from pipelines import PipelineRunner
 
 runner = PipelineRunner(task="gpqa")
-review_history = runner.run_mars_pipeline(user_query="What is 9 × 7?", n_reviewers=3, verbosity=1)
+review_history = runner.run_mars_pipeline(user_query="What is 9 × 7?", n_reviewers=2, verbosity=1)
 
 response = review_history['author_response'] if 'author_rebuttal' not in review_history else review_history['author_rebuttal']
 ```
@@ -62,9 +72,9 @@ response = review_history['author_response'] if 'author_rebuttal' not in review_
 
 | Name         | Description |
 |--------------|-------------|
-| `task`       | Dataset/task name. Choose from:<br>🧮 `"gsm"`, `"gsm_hard"`, `"math"`, `"ciar"` → math data<br>📚 `"mmlu"`, `"gpqa"` → multi-choice QA |
+| `task`       | Dataset/task name. Choose from:<br>🧮 `"gsm"` → math data<br>📚 `"mmlu"`, `"gpqa"` → multi-choice QA |
 | `question`   | The input question (just the raw question text — no prompt formatting needed). |
-| `n_reviewers`| Number of reviewers (recommended: 2 or 3; default: 3). |
+| `n_reviewers`| Number of reviewers (recommended: 2 or 3; default: 2). |
 | `verbosity`  | Set to `1` to print step-by-step output; default is `0`. |
 
 #### 📤 Output
