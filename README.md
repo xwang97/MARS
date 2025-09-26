@@ -116,3 +116,17 @@ This evaluates MARS on the [GPQA dataset](https://github.com/idavidrein/gpqa).
 - `multi_score`: Number of correct final answers.
 - `avg_tokens`: Average tokens consumed per question.
 - `avg_time`: Average inference time per question.
+
+## Citation
+If this work has proven useful or you are using this repository for your project, please cite using:
+```
+@misc{wang2025marsefficientmultiagentcollaboration,
+      title={MARS: toward more efficient multi-agent collaboration for LLM reasoning}, 
+      author={Xiao Wang and Jia Wang and Yijie Wang and Pengtao Dang and Sha Cao and Chi Zhang},
+      year={2025},
+      eprint={2509.20502},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2509.20502}, 
+}
+```
