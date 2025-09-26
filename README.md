@@ -1,6 +1,6 @@
 # ✨ MARS: Toward More Efficient Multi-Agent Collaboration for LLM Reasoning
 
-This repository provides the necessary scripts and examples to run the **MARS** pipeline and reproduce the experimental results from our paper.
+This repository provides the necessary scripts and examples to run the **MARS** pipeline and reproduce the experimental results from our paper: [**MARS: toward more efficient multi-agent collaboration for LLM reasoning**](https://arxiv.org/abs/2509.20502) .
 
 ---
 
