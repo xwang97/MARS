@@ -120,13 +120,10 @@ This evaluates MARS on the [GPQA dataset](https://github.com/idavidrein/gpqa).
 ## Citation
 If this work has proven useful or you are using this repository for your project, please cite using:
 ```
-@misc{wang2025marsefficientmultiagentcollaboration,
-      title={MARS: toward more efficient multi-agent collaboration for LLM reasoning}, 
-      author={Xiao Wang and Jia Wang and Yijie Wang and Pengtao Dang and Sha Cao and Chi Zhang},
-      year={2025},
-      eprint={2509.20502},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2509.20502}, 
+@article{wang2025mars,
+  title={MARS: toward more efficient multi-agent collaboration for LLM reasoning},
+  author={Wang, Xiao and Wang, Jia and Wang, Yijie and Dang, Pengtao and Cao, Sha and Zhang, Chi},
+  journal={arXiv preprint arXiv:2509.20502},
+  year={2025}
 }
 ```
