@@ -9,60 +9,130 @@ class PipelineRunner:
         self.templates = PromptBuilder(task=task)
         self.model = model
 
-    def run_mars_pipeline(self, user_query, n_reviewers=2, verbosity=0):
+    def run_mars_pipeline(self, user_query, n_reviewers=2, max_rounds=3, verbosity=0):
+        # 1. Initialize Agents
         author = create_author_agent(model=self.model)
         reviewers = create_reviewer_agents(n_reviewers, model=self.model)
         meta = create_meta_reviewer_agent(model=self.model)
-        author_history = []
 
-        # Step 1: Author answers
+        # 2. Setup History Tracking
+        author_history = []
+        # We need a separate conversation history for EACH reviewer
+        reviewer_histories = [[] for _ in range(n_reviewers)] 
+        full_history = {
+            "user_query": user_query,
+            "rounds": [],
+            "final_status": "unresolved"
+        }
+
+        # 3. Step 1: Author's First Draft
         author_input = self.templates.construct_author_prompt(user_query)
         author_history.append(author_input)
+        
         author_response = author.run(author_history)
         author_history.append(author_response)
+        current_answer_content = author_response["content"]
+        
+        # Variable to store the author's rebuttal logic to show reviewers in the next round
+        latest_rebuttal_logic = "This is the initial answer." 
         if verbosity:
-            print("\n=== Author's Answer ===\n", author_response["content"])
+            print(f"\n=== Round 0: Author's Initial Answer ===\n{current_answer_content}")
 
-        # Step 2: Reviewers critique
-        review_responses = []
-        for reviewer in reviewers:
-            review_input = self.templates.construct_reviewer_prompt(user_query, author_response["content"])
-            review = reviewer.run(review_input)
-            review_responses.append(review)
+        # 4. The Review Loop
+        for round_idx in range(1, max_rounds + 1):
             if verbosity:
-                print(f"\n--- {reviewer.name} Review ---\n{review}")
+                print(f"\n\n--- Starting Review Round {round_idx} ---")
 
-        # Step 3: Meta-review
-        combined_reviews = "\n\n".join(
-            [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
-        )
-        meta_input = self.templates.construct_meta_prompt(user_query, author_response["content"], combined_reviews)
-        meta_decision = meta.run(meta_input)
-        if verbosity:
-            print("\n=== Meta-Reviewer Final Decision ===\n", meta_decision)
-            print("\n")
+            round_data = {
+                "round": round_idx,
+                "input_answer": current_answer_content,
+                "reviews": [],
+                "meta_review": None
+            }
 
-        # Additional step: build a dictionary to save the review process
-        review_history = {"author_response": author_response["content"]}
-        for i, review in enumerate(review_responses):
-            review_history[f"review{i+1}"] = review
-        review_history["meta_review"] = meta_decision
+            # --- A. Reviewers Critique (Stateful) ---
+            review_responses = []
+            for i, reviewer in enumerate(reviewers):               
+                # Logic: Construct the prompt based on whether it is the first round or a follow-up
+                if round_idx == 1:
+                    # First time: Standard Reviewer Prompt
+                    prompt_content = self.templates.construct_reviewer_prompt(user_query, current_answer_content)
+                    # Initialize this reviewer's history
+                    reviewer_histories[i] = [{"role": "user", "content": prompt_content}]
+                else:
+                    # Subsequent rounds: Add the Author's update to the history
+                    update_message = (
+                        "The author has revised the answer based on previous feedback.\n"
+                        f"--- Author's Rebuttal/Logic ---\n{latest_rebuttal_logic}\n\n"
+                        f"--- New Answer ---\n{current_answer_content}\n\n"
+                        "Please evaluate this new answer. Check if your previous concerns were addressed."
+                    )
+                    reviewer_histories[i].append({"role": "user", "content": update_message})
 
-        # Step 4: Send feedback or return final answer
-        decision = extract_meta_decision(meta_decision)
-        if decision.lower() == "wrong":
-            feedback_input = self.templates.construct_feedback_prompt(meta_decision)
-            author_history.append(feedback_input)
-            author_rebuttal = author.run(author_history)
+                # RUN the reviewer (passing the list triggers the chat-history mode in your Agent class)
+                review_response_dict = reviewer.run(reviewer_histories[i])
+                review_content = review_response_dict["content"]
+                # Extract confidence score if available
+                confidence_score = review_response_dict.get("confidence_score", 0.5)
+                formatted_review_str = (
+                    f"Reliability Score: {confidence_score:.2f} / 1.0\n"
+                    f"{review_content}"
+                )
+                review_responses.append(formatted_review_str)
+
+                # Append the *Reviewer's own output* to their history so they remember what they said
+                reviewer_histories[i].append(review_response_dict)
+                
+                # Save string content for the Meta-Reviewer
+                round_data["reviews"].append({f"reviewer_{i+1}": formatted_review_str})                
+                if verbosity:
+                    print(f"\n[Round {round_idx}] {reviewer.name}:\n{review_content}")
+
+            # --- B. Meta-Reviewer Decision (Remains mostly stateless per round) ---
+            combined_reviews = "\n\n".join(
+                [f"{reviewers[i].name}:\n{review_responses[i]}" for i in range(len(reviewers))]
+            )
+            meta_input = self.templates.construct_meta_prompt(user_query, current_answer_content, combined_reviews)
+            meta_decision = meta.run(meta_input)            
+            round_data["meta_review"] = meta_decision
             if verbosity:
-                print("\n=== Author's new answer ===\n", author_rebuttal["content"])
-            review_history['author_rebuttal'] = author_rebuttal["content"]
+                print(f"\n[Round {round_idx}] Meta-Reviewer Decision:\n{meta_decision}")
 
-        # Additional step: Compute total tokens used across all agents
+            # --- C. Check Decision ---
+            decision = extract_meta_decision(meta_decision)            
+            if decision.lower() == "right":
+                full_history["final_status"] = "accepted"
+                full_history["rounds"].append(round_data)
+                if verbosity:
+                    print(f"\n=== Answer Accepted in Round {round_idx} ===")
+                break
+            
+            # --- D. Feedback & Revision (Prepare for next round) ---
+            if round_idx < max_rounds:
+                feedback_input = self.templates.construct_feedback_prompt(meta_decision)
+                author_history.append(feedback_input)
+                
+                author_rebuttal = author.run(author_history)
+                author_history.append(author_rebuttal)                
+                # Parse the Author's output to separate Logic/Reasons from the final Answer if needed
+                # For now, we assume the whole content is the new state, but we save it to show reviewers
+                current_answer_content = author_rebuttal["content"]
+                latest_rebuttal_logic = author_rebuttal["content"] # In a real parsing scenario, you might extract just the "Reasons" part
+                
+                if verbosity:
+                    print(f"\n=== Author's Revised Answer (Round {round_idx}) ===\n{current_answer_content}")
+            else:
+                full_history["final_status"] = "max_rounds_reached"
+
+            full_history["rounds"].append(round_data)
+
+        # Final Token Calculation
         agents = [author, *reviewers, meta]
         total_tokens = sum(agent.total_tokens for agent in agents)
-        review_history["total_tokens"] = total_tokens
-        return review_history
+        full_history["total_tokens"] = total_tokens
+        full_history["final_answer"] = current_answer_content
+        
+        return full_history
 
     def run_single_agent_pipeline(self, user_query, verbosity=0):
         agent = create_author_agent(model=self.model)

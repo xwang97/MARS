@@ -11,60 +11,133 @@ import os
 
 def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True, voting=False, verbosity=0):
     """
-    Evaluate the MARVEL framework on certain task.
+    Evaluate the MARVEL framework on certain task using the updated Multi-Round Pipeline.
     """
     all_questions = load_data(task=task)
     mars_scores = []  # scores after multi-agent review
-    token_usages = []  # total token consumptions of each question
-    records = []  # record the full review process of each question
-    rectified_collections = []  # record initially wrong but rectified by reviewers questions
+    mars_scores_vote = []
+    token_usages = [] 
+    records = []  
+    rectified_collections = [] 
+
+    # --- Setup Question List (Unchanged) ---
     if selected:
         question_list = list(np.loadtxt(f"data/{task}/question_ids.txt").astype(int))
     else:
         question_list = sorted(random.sample(range(len(all_questions)), n_problems))
-        # question_list = range(len(all_questions))
         if not os.path.exists(f"data/{task}"):
             os.makedirs(f"data/{task}")
         np.savetxt(f"data/{task}/question_ids.txt", question_list)
-    # start testing on each question
+
     start_time = time.time()
+    
+    # --- Main Evaluation Loop ---
     for i in tqdm(question_list):
         question = all_questions[i]["question"]
         gt_answer = all_questions[i]["answer"]
+        
         if verbosity:
             print("question: ", question)
             print("gt_answer: ", gt_answer)
             print("===================")
-        answer = extract_answer(gt_answer, task)
-        # Run MARVEL pipeline
+            
+        answer = extract_answer(gt_answer, task) # Ground Truth
+
+        # 1. Run the New Multi-Round Pipeline
         runner = PipelineRunner(task=task, model=model)
-        review_history = runner.run_mars_pipeline(question, n_reviewers=n_reviewers, verbosity=verbosity)
-        single_agent_answer = extract_pred_answer(review_history['author_response'], task)
-        mars_answer = extract_pred_answer(review_history['author_rebuttal'], task) if 'author_rebuttal' in review_history else single_agent_answer
+        # Added max_rounds parameter (you can tune this)
+        review_history = runner.run_mars_pipeline(
+            question, 
+            n_reviewers=n_reviewers, 
+            max_rounds=3, 
+            verbosity=verbosity
+        )
+
+        # 2. Extract Single Agent Answer (Baseline)
+        # The 'input_answer' to Round 1 is the Author's initial, unreviewed draft.
+        initial_draft = review_history['rounds'][0]['input_answer']
+        single_agent_answer = extract_pred_answer(initial_draft, task)
+
+        # 3. Extract MARS Final Answer
+        # The pipeline now explicitly returns the final accepted content
+        mars_final_content = review_history['final_answer']
+        mars_answer = extract_pred_answer(mars_final_content, task)
+
+        # 4. Extract Voting Answer (Optional Adapter)
+        # Your old `extract_pred_answer_majority` likely expects keys like "review1", "review2".
+        # We need to convert the *last round's* reviews to that format.
+        mars_answer_vote = None
+        if voting:
+            # 1. Create a dictionary to mimic the old flat structure
+            voting_dict = {}
+
+            # A. Add Reviewers (from the LAST round)
+            last_round = review_history['rounds'][-1]
+            last_round_reviews = last_round['reviews']
+            
+            for idx, rev_item in enumerate(last_round_reviews):
+                # rev_item is { "reviewer_X": "content" }
+                content = list(rev_item.values())[0] 
+                voting_dict[f"review{idx+1}"] = content
+
+            # B. Add Author's Initial Answer (Round 0 input)
+            # Old function needs: 'author_response'
+            voting_dict['author_response'] = review_history['rounds'][0]['input_answer']
+
+            # C. Add Author's Final/Rebuttal Answer
+            # Old function needs: 'author_rebuttal'
+            voting_dict['author_rebuttal'] = review_history['final_answer']
+
+            # D. Add Meta-Reviewer (from the LAST round)
+            # Old function needs: 'meta_review'
+            voting_dict['meta_review'] = last_round['meta_review']
+            
+            # 2. Now pass this 'fake' old-style history to the existing voting function
+            mars_answer_vote = extract_pred_answer_majority(voting_dict, n_reviewers, task)
+        else:
+            # Fallback if voting is off, use the meta-reviewer's result
+            mars_answer_vote = mars_answer 
+
+        # --- Scoring Logic (Unchanged) ---
         if is_correct(mars_answer, answer, task):
             mars_scores.append(1)
         else:
             mars_scores.append(0)
+            
+        if is_correct(mars_answer_vote, answer, task):
+            mars_scores_vote.append(1)
+        else:
+            mars_scores_vote.append(0)
+
         if verbosity:
             print("GT, single-agent, and multi-agent answer: ", answer, single_agent_answer, mars_answer)
             print("\n")
+
+        # Check for rectification (Initially Wrong -> Finally Correct)
         if not is_correct(single_agent_answer, answer, task) and is_correct(mars_answer, answer, task):
             rectified_collections.append(i)
+
+        # Update record with metadata
         review_history['id'] = int(i)
         review_history['multi_score'] = int(mars_scores[-1])
         review_history['question'] = question
         review_history['gt_answer'] = gt_answer
+        
+        # 'total_tokens' is already in the new review_history structure
         token_usages.append(review_history['total_tokens'])
         records.append(review_history)
+
     end_time = time.time()
     avg_time = (end_time - start_time) / len(question_list)
-    # save all the review histories
+
+    # Save Records
     date_str = date.today().isoformat()
     save_name = f"data/{task}/records/{date_str}.jsonl"
     if not os.path.exists(f"data/{task}/records"):
         os.makedirs(f"data/{task}/records")
     save_jsonl(records, save_name)
-    return sum(mars_scores), rectified_collections, np.mean(token_usages), avg_time
+
+    return sum(mars_scores), sum(mars_scores_vote), rectified_collections, np.mean(token_usages), avg_time
 
 
 def eval_single_agent(task="gsm", model=None, n_problems=5, selected=True, verbosity=0):
@@ -110,8 +183,6 @@ def eval_single_agent(task="gsm", model=None, n_problems=5, selected=True, verbo
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/single_agent_logs/{task}_{date_str}.jsonl"
-    if not os.path.exists("baselines/single_agent_logs"):
-        os.makedirs("baselines/single_agent_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
@@ -155,8 +226,6 @@ def eval_self_reflection(task="gsm", model=None, n_problems=5, selected=True, ve
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/reflection_logs/{task}_{date_str}.jsonl"
-    if not os.path.exists("baselines/reflection_logs"):
-        os.makedirs("baselines/reflection_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
@@ -203,8 +272,6 @@ def eval_self_consistency(task="gsm", model=None, n_problems=5, n_samples=3, sel
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/consistency_logs/{task}_{date_str}.jsonl"
-    if not os.path.exists("baselines/consistency_logs"):
-        os.makedirs("baselines/consistency_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time
 
@@ -231,7 +298,7 @@ def eval_debate(task="gsm", model=None, n_problems=5, n_agents=3, selected=True,
         # Run debate pipeline
         runner = PipelineRunner(task=task, model=model)
         debate_history, total_tokens = runner.run_debate_pipeline(question, num_agents=n_agents, verbosity=verbosity)
-        pred_answer = extract_debate_answer(debate_history, task)
+        pred_answer = extract_debate_answer(debate_history, task)  # need update !!!
         if verbosity:
             print("GT answer and predicted answer: ", answer, pred_answer)
         if pred_answer is not None and is_correct(pred_answer, answer, task=task):
@@ -245,7 +312,5 @@ def eval_debate(task="gsm", model=None, n_problems=5, n_agents=3, selected=True,
     avg_time = (end_time - start_time) / len(question_list)
     date_str = date.today().isoformat()
     save_name = f"baselines/debate_logs/{task}_{date_str}.jsonl"
-    if not os.path.exists("baselines/debate_logs"):
-        os.makedirs("baselines/debate_logs")
     save_jsonl(records, save_name)
     return sum(scores), hard_collections, np.mean(token_usages), avg_time

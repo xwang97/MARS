@@ -1,9 +1,11 @@
 class PromptBuilder:
     def __init__(self, task="gsm"):
         self.task = task
+        self.math_tasks = ["gsm", "ciar", "gsm_hard", "svamp"]
+        self.qa_tasks = ["mmlu", "gpqa", "stg", "mmlu_pro"]
 
     def construct_author_prompt(self, user_query):
-        if self.task in ["gsm"]:
+        if self.task in self.math_tasks:
             author_prompt = {
                 "role": "user",
                 "content": (
@@ -15,14 +17,14 @@ class PromptBuilder:
                     "Your final answer must be a single numerical number at the end of the response.\n\n"
                 )
             }
-        if self.task in ["mmlu", "gpqa"]:
+        if self.task in self.qa_tasks:
             author_prompt = {
                 "role": "user",
                 "content": (
                     "You are an assistant. Please help to solve the following problem:\n"
                     f"{user_query}\n\n"
                     "Give your thoughts about the question and the final answer in the following format:\n"
-                    "Thoughts: [your thoughts with immediate results]\n"
+                    "Thoughts: [Analysis of the question and options]\n"
                     "Answer: [the final single captial letter answer in the form (X). X is chosed from [A,B,C,D]]\n\n"
                     "Your final answer must be a single capital letter in the form (X) at the end of the response.. X is from [A,B,C,D].\n\n"
                 )
@@ -30,111 +32,126 @@ class PromptBuilder:
         return author_prompt
 
     def construct_reviewer_prompt(self, user_query, author_response):
-        output_format = (
-            "---\n\n"
-            "Your output format must be:\n\n"
-            "Decision: [right | wrong]  \n"
-            "Confidence: [1–5] (5 = highest confidence)  \n"
-            "Justification: [reasons or author mistakes supporting your decision] \n"
-            "Answer: [your recommended answer]"
-            "---\n\n"
+        # --- COMMON "SOLVE FIRST" HEADER ---
+        base_instruction = (
+            "You are an objective reviewer. The author has submitted an answer to a problem.\n"
+            "Your goal is to check for correctness, NOT to find faults where none exist.\n"
+            "INSTRUCTIONS:\n"
+            "1. Ignore the Author's answer initially.\n"
+            "2. Solve the problem yourself from scratch in the 'My Independent Solution' section.\n"
+            "3. Only AFTER you solve it, compare your result with the Author's.\n"
         )
-        if self.task in ["gsm"]:
-            reviewer_prompt = (
-                "You are a reviewer. The author has submitted the following answer to a math problem:\n\n"
-                f"Question: {user_query}\n\n"
-                f"Answer: {author_response}\n\n"
-                "Please evaluate the correctness of the author's response. Follow the instructions and format strictly:\n\n"
-                "---\n\n"
-                "Evaluation criteria:\n\n"
-                "1. **Consistency**: Check whether each step in the author's thoughts is consistent with the original problem.\n"
-                "2. **Accuracy**: Check whether each computation gets the correct result.\n"
-                f"{output_format}"
+        
+        if self.task in self.math_tasks:
+            output_format = (
+                "---\n"
+                "OUTPUT FORMAT:\n"
+                "My Independent Solution: [Solve the problem step-by-step yourself here]\n"
+                "Comparison: [Compare your result with the Author's result]\n"
+                "Decision: [right | wrong] (Only say 'wrong' if the Author's final value is significantly different from yours)\n"
+                "Confidence: [1–5]\n"
+                "Justification: [Explain strictly based on math. If the Author is right, say so.]\n"
+                "Final Answer: [Your final calculated answer here]\n"
+                "---\n"
             )
-        if self.task in ["mmlu", "gpqa"]:
-            reviewer_prompt = (
-                "You are a reviewer. The author has submitted the following answer to a problem:\n\n"
-                f"Question: {user_query}\n\n"
-                f"Answer: {author_response}\n\n"
-                "Please evaluate the correctness of the author's response. Follow the instructions and format strictly:\n\n"
-                "---\n\n"
-                "Evaluation criteria:\n\n"
-                "1. **Faithfulness**: check whether the author's answers and thoughts are consistent with facts you have known.\n"
-                "2. **Correctness**: check whether each step in the author's answer and thoughts is correct.\n"
-                f"{output_format}"
+            criteria = "Check for arithmetic accuracy and logical consistency."
+
+        if self.task in self.qa_tasks:
+            output_format = (
+                "---\n"
+                "OUTPUT FORMAT:\n"
+                "My Independent Analysis: [Analyze the question and evaluate each option A, B, C, D]\n"
+                "My Selected Option: [e.g., (A)]\n"
+                "Comparison: [Does your option match the Author's?]\n"
+                "Decision: [right | wrong] (Vote 'right' if the Author's option matches yours)\n"
+                "Confidence: [1–5]\n"
+                "Justification: [Explain why the Author's reasoning is correct or incorrect]\n"
+                "Final Answer: [Your selected option, e.g. (A)]\n"
+                "---\n"
             )
+            criteria = "Check for factual correctness and reasoning. Verify why the other options are wrong."
+        reviewer_prompt = (
+            f"{base_instruction}\n"
+            f"Criteria: {criteria}\n\n"
+            f"Question: {user_query}\n\n"
+            f"Author's Answer: {author_response}\n\n"
+            f"{output_format}"
+        )
         return reviewer_prompt
 
     def construct_meta_prompt(self, user_query, author_response, combined_reviews):
-        output_format = (
-            "Decision: [right | wrong]\n"
-            "Justification: [reasons of your decision]\n"
-            "Suggestions: [your suggestions for updating the answer, only needed when decision is wrong]\n"
+        score_instruction = (
+            "NOTE ON RELIABILITY SCORES:\n"
+            "- Each Reviewer provides a 'Reliability Score' (0.0 to 1.0) based on their internal model uncertainty.\n"
+            "- High Score (>0.8): The Reviewer is mathematically confident. Trust their specific calculations/facts.\n"
+            "- Low Score (<0.6): The Reviewer is uncertain or confused. You should be skeptical of their critique, especially if they disagree with a High-Score reviewer.\n"
         )
-        if self.task in ["gsm"]:
-            meta_prompt = (
-                "You are the meta-reviewer. The author has submitted an answer to a math problem.\n\n"
-                f"Question: {user_query}\n\n"
-                f"Answer: {author_response}\n\n"
-                "You must decide whether the answer is correct based on:\n"
-                "1. Your own mathematical knowledge\n"
-                "2. The reviewers' comments provided below\n\n"
-                "--- Reviewer Feedback ---\n"
-                f"{combined_reviews}\n\n"
-                "Do not only rely on the reviewers, you must also think by yourself.\n\n"
-                "Provide your conclusion in the following format:\n"
-                f"{output_format}"
-                "Answer: [your recommended single numerical answer]\n\n"
+        # --- MATH: Verification + Suggestions ---
+        if self.task in self.math_tasks:
+            specific_instructions = (
+                "CRITICAL INSTRUCTIONS:\n"
+                f"{score_instruction}\n"
+                "1. Reviewers might be wrong. If a Reviewer claims the math is wrong but provides a vague alternative, trust your own judgment.\n"
+                "2. Verify the final values yourself by substituting them back into the original question.\n"
             )
-        if self.task in ["mmlu", "gpqa"]:
-            meta_prompt = (
-                "You are the meta-reviewer. The author has submitted an answer to a problem.\n\n"
-                f"Question: {user_query}\n\n"
-                f"Answer: {author_response}\n\n"
-                "You must decide whether the answer is correct based on both your own knowledge and the reviewers' comments below:\n\n"
-                "--- Reviewer Feedback ---\n"
-                f"{combined_reviews}\n\n"
-                "Do not only rely on the reviewers, you must also think by yourself.\n\n"
-                "Provide your conclusion in the following format:\n"
-                f"{output_format}"
-                "Answer: [your recommended answer]\n\n"
+            output_format = (
+                "Output Format:\n"
+                "Verification: [Substitute the Author's answer into the question. Does it work?]\n"
+                "Decision: [right | wrong]\n"
+                "Justification: [Reasoning for your decision]\n"
+                "Suggestions: [If wrong, specific guidance on which step to fix. If right, leave blank.]\n"
+                "Final Answer: [The correct answer]\n"
             )
+
+        # --- QA: Evidence + Suggestions ---
+        elif self.task in self.qa_tasks:
+            specific_instructions = (
+                "CRITICAL INSTRUCTIONS:\n"
+                f"{score_instruction}\n"
+                "1. Do not just count votes. Evaluate the *reasoning* and *evidence* provided by each Reviewer.\n"
+                "2. If the Author's reasoning is sound and Reviewers are nitpicking, favor the Author.\n"
+            )
+            output_format = (
+                "Output Format:\n"
+                "Evidence Evaluation: [Briefly weigh the arguments from the Author vs Reviewers]\n"
+                "Decision: [right | wrong]\n"
+                "Justification: [Reasoning for your decision]\n"
+                "Suggestions: [If wrong, specific guidance on what facts/logic to revisit. If right, leave blank.]\n"
+                "Final Answer: [The correct option in form (X)]\n"
+            )
+        
+        meta_prompt = (
+            "You are the Meta-Reviewer. You have received an answer from an Author and critiques from Reviewers.\n\n"
+            f"Question: {user_query}\n\n"
+            f"Author's Answer: {author_response}\n\n"
+            "--- Reviewer Feedback ---\n"
+            f"{combined_reviews}\n\n"
+            f"{specific_instructions}\n"
+            f"{output_format}\n"
+        )
         return meta_prompt
 
     def construct_feedback_prompt(self, meta_decision):
-        if self.task in ["gsm"]:
-            feedback_prompt = (
-                    "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
-                    "--- Meta-reviewer Feedback ---\n"
-                    f"{meta_decision}\n\n."
-                    "If you strongly agree with the meta-reviewer's suggestions, revise your answer accordingly.\n"
-                    "If you disagree, insist on your initial answer and repeat it.\n\n"
-                    "Make sure to state your thoughts and final answer with this format:\n"
-                    "Reasons: [your reasons of accepting or rejecting the suggestions]\n"
-                    "Thoughts: [your new step-by-step computation process after considering the suggestions]\n"
-                    "Answer: [the final numerical answer]\n\n"
-                )
-        if self.task in ["mmlu", "gpqa"]:
-            # Add your code here
-            feedback_prompt = (
-                    "Your answer was reviewed and marked as incorrect by the meta-reviewer.\n\n"
-                    "--- Meta-reviewer Feedback ---\n"
-                    f"{meta_decision}\n\n."
-                    "If you strongly agree with the meta-reviewer's suggestions, revise your answer accordingly.\n"
-                    "If you disagree, insist on your initial answer and repeat it.\n"
-                    "Do not always trust the meta-reviewer, you must think by yourself whether to trust the suggestions.\n\n"
-                    "Make sure to state your reasons and final answer with this format:\n"
-                    "Reasons: [your reasons of accepting or rejecting the suggestions]\n"
-                    "Thoughts: [your new step-by-step thoughts on the problem after considering the suggestions]\n"
-                    "Answer: [the final single captial letter answer in the form (X). X is chosed from [A,B,C,D]]\n\n"
-            )
+        if self.task in self.math_tasks:
+            focus = "calculation error"
+        else:
+            focus = "factual or reasoning error"
+
+        feedback_prompt = (
+            "Your answer was reviewed and marked as incorrect.\n"
+            f"--- Feedback ---\n{meta_decision}\n\n"
+            "Instruction:\n"
+            f"1. If you made a {focus}, fix it.\n"
+            "2. HOWEVER, if you are confident your original answer was correct and the reviewers are mistaken, YOU MAY STICK TO YOUR ORIGINAL ANSWER.\n"
+            "3. Provide your final reasoning and answer.\n"
+        )
         return {"role": "user", "content": feedback_prompt}
 
     def construct_initial_prompt(self, user_query):
         return self.construct_author_prompt(user_query)["content"]
 
     def construct_reflection_prompt(self, user_query, response):
-        if self.task in ["gsm"]:
+        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
             reflection_prompt = (
                 "You wrote the following response to a math problem:\n\n"
                 f"Qustion: {user_query}\n\n"
@@ -145,7 +162,7 @@ class PromptBuilder:
                 "Mistakes (if any): \n\n"
                 "Answer: [the final single numerical answer]\n\n"
             )
-        if self.task in ["mmlu", "gpqa"]:
+        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
             # Add your code here
             reflection_prompt = (
                 "You wrote the following response to a problem:\n\n"
@@ -160,7 +177,7 @@ class PromptBuilder:
         return reflection_prompt
 
     def construct_debate_prompt(self, other_agents_responses, user_query, response_idx):
-        if self.task in ["gsm"]:
+        if self.task in ["gsm", "ciar", "gsm_hard", "svamp"]:
             if not other_agents_responses:
                 return {
                     "role": "user",
@@ -187,7 +204,7 @@ class PromptBuilder:
                 "Your final answer must be a single numerical number at the end of the response.\n\n"
             )
         
-        if self.task in ["mmlu", "gpqa"]:
+        if self.task in ["mmlu", "gpqa", "stg", "mmlu_pro"]:
             if not other_agents_responses:
                 return {
                     "role": "user",
