@@ -9,7 +9,7 @@ import time
 import os
 
 
-def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True, voting=False, verbosity=0):
+def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, max_rounds=2, selected=True, voting=False, verbosity=0):
     """
     Evaluate the MARVEL framework on certain task using the updated Multi-Round Pipeline.
     """
@@ -49,7 +49,7 @@ def eval_mars(task="gsm", model=None, n_problems=5, n_reviewers=2, selected=True
         review_history = runner.run_mars_pipeline(
             question, 
             n_reviewers=n_reviewers, 
-            max_rounds=3, 
+            max_rounds=max_rounds, 
             verbosity=verbosity
         )
 

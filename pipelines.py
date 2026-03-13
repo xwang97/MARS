@@ -9,7 +9,7 @@ class PipelineRunner:
         self.templates = PromptBuilder(task=task)
         self.model = model
 
-    def run_mars_pipeline(self, user_query, n_reviewers=2, max_rounds=3, verbosity=0):
+    def run_mars_pipeline(self, user_query, n_reviewers=2, max_rounds=2, verbosity=0):
         # 1. Initialize Agents
         author = create_author_agent(model=self.model)
         reviewers = create_reviewer_agents(n_reviewers, model=self.model)
@@ -35,6 +35,7 @@ class PipelineRunner:
         
         # Variable to store the author's rebuttal logic to show reviewers in the next round
         latest_rebuttal_logic = "This is the initial answer." 
+        last_round_decision = "wrong"
         if verbosity:
             print(f"\n=== Round 0: Author's Initial Answer ===\n{current_answer_content}")
 
@@ -60,14 +61,19 @@ class PipelineRunner:
                     # Initialize this reviewer's history
                     reviewer_histories[i] = [{"role": "user", "content": prompt_content}]
                 else:
-                    # Subsequent rounds: Add the Author's update to the history
-                    update_message = (
-                        "The author has revised the answer based on previous feedback.\n"
-                        f"--- Author's Rebuttal/Logic ---\n{latest_rebuttal_logic}\n\n"
-                        f"--- New Answer ---\n{current_answer_content}\n\n"
-                        "Please evaluate this new answer. Check if your previous concerns were addressed."
+                    # Round 2+: Dynamic Update Message
+                    # We need the 'decision' from the previous round to set the status
+                    # If this is round 2, we look at what happened at the end of round 1.
+                    # (You need to track 'last_round_decision' variable in your loop)                    
+                    prev_status = last_round_decision # Use the tracked decision from the previous round
+                    
+                    # Use the NEW method
+                    update_msg_dict = self.templates.construct_reviewer_update_prompt(
+                        previous_status=prev_status, # "right" or "wrong"
+                        author_logic=latest_rebuttal_logic, 
+                        current_answer=current_answer_content
                     )
-                    reviewer_histories[i].append({"role": "user", "content": update_message})
+                    reviewer_histories[i].append(update_msg_dict)
 
                 # RUN the reviewer (passing the list triggers the chat-history mode in your Agent class)
                 review_response_dict = reviewer.run(reviewer_histories[i])
@@ -99,30 +105,41 @@ class PipelineRunner:
                 print(f"\n[Round {round_idx}] Meta-Reviewer Decision:\n{meta_decision}")
 
             # --- C. Check Decision ---
-            decision = extract_meta_decision(meta_decision)            
-            if decision.lower() == "right":
+            decision = extract_meta_decision(meta_decision).lower() # Normalize to 'right'/'wrong'
+            last_round_decision = decision # Update for next round's reviewer prompts
+            # Update status for the record
+            round_data["decision"] = decision
+            if decision == "right":
                 full_history["final_status"] = "accepted"
-                full_history["rounds"].append(round_data)
-                if verbosity:
-                    print(f"\n=== Answer Accepted in Round {round_idx} ===")
-                break
-            
-            # --- D. Feedback & Revision (Prepare for next round) ---
+                # DO NOT BREAK here. We continue to max_rounds.
+            if verbosity:
+                 print(f"\n[Round {round_idx}] Decision: {decision.upper()}")
+
+            # --- D. Feedback & Revision ---
+            # We only generate feedback if we haven't reached the limit
             if round_idx < max_rounds:
-                feedback_input = self.templates.construct_feedback_prompt(meta_decision)
-                author_history.append(feedback_input)
                 
+                # NEW: Pass the decision status to the prompt builder
+                # If decision was "right", the prompt will be "Double check it".
+                # If decision was "wrong", the prompt will be "Fix it".
+                feedback_input = self.templates.construct_feedback_prompt(meta_decision, status=decision)
+                
+                author_history.append(feedback_input)
                 author_rebuttal = author.run(author_history)
-                author_history.append(author_rebuttal)                
-                # Parse the Author's output to separate Logic/Reasons from the final Answer if needed
-                # For now, we assume the whole content is the new state, but we save it to show reviewers
+                author_history.append(author_rebuttal)
+                
+                # Update current content for the next loop
                 current_answer_content = author_rebuttal["content"]
-                latest_rebuttal_logic = author_rebuttal["content"] # In a real parsing scenario, you might extract just the "Reasons" part
+                latest_rebuttal_logic = author_rebuttal["content"]
                 
                 if verbosity:
                     print(f"\n=== Author's Revised Answer (Round {round_idx}) ===\n{current_answer_content}")
             else:
-                full_history["final_status"] = "max_rounds_reached"
+                # If we are at the last round, just mark the final status based on the LAST decision
+                if decision == "right":
+                    full_history["final_status"] = "accepted"
+                else:
+                    full_history["final_status"] = "rejected"
 
             full_history["rounds"].append(round_data)
 

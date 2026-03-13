@@ -131,21 +131,67 @@ class PromptBuilder:
         )
         return meta_prompt
 
-    def construct_feedback_prompt(self, meta_decision):
-        if self.task in self.math_tasks:
-            focus = "calculation error"
+    def construct_feedback_prompt(self, meta_decision, status="wrong"):
+        """
+        Dynamic prompt that handles both correction (if wrong) and 
+        optimization/verification (if right).
+        """
+        if status == "right":
+            # Scenario: Answer is accepted, but we force another round for stability.
+            instruction = (
+                "Your answer was reviewed and marked as CORRECT.\n"
+                "However, we are performing one final robustness check.\n"
+                "INSTRUCTIONS:\n"
+                "1. Review your logic one last time to ensure no subtle bugs exist.\n"
+                "2. If you are 100% certain, you may output the exact same answer.\n"
+                "3. If you find a small improvement for clarity, apply it."
+            )
         else:
-            focus = "factual or reasoning error"
+            # Scenario: Answer was rejected.
+            if self.task in self.math_tasks:
+                focus = "calculation error"
+            else:
+                focus = "factual or reasoning error"
+            
+            instruction = (
+                "Your answer was reviewed and marked as INCORRECT.\n"
+                f"1. If you made a {focus}, fix it.\n"
+                "2. HOWEVER, if you are confident your original answer was correct and the reviewers are mistaken, YOU MAY STICK TO YOUR ORIGINAL ANSWER."
+            )
 
         feedback_prompt = (
-            "Your answer was reviewed and marked as incorrect.\n"
-            f"--- Feedback ---\n{meta_decision}\n\n"
-            "Instruction:\n"
-            f"1. If you made a {focus}, fix it.\n"
-            "2. HOWEVER, if you are confident your original answer was correct and the reviewers are mistaken, YOU MAY STICK TO YOUR ORIGINAL ANSWER.\n"
-            "3. Provide your final reasoning and answer.\n"
+            f"--- Reviewer Feedback ---\n{meta_decision}\n\n"
+            f"{instruction}\n\n"
+            "Provide your final reasoning and answer.\n"
         )
         return {"role": "user", "content": feedback_prompt}
+    
+    # 2. NEW: Update the Reviewer Loop Prompt (Reviewer Context)
+    def construct_reviewer_update_prompt(self, previous_status, author_logic, current_answer):
+        """
+        Tells the reviewer WHY they are seeing this answer again.
+        """
+        if previous_status == "right":
+            # Context: Stability Check
+            context_msg = (
+                "The previous answer was accepted as correct. We are now doing a robustness check.\n"
+                "The Author has reviewed their work and decided to stick with (or slightly refine) their answer.\n"
+                "YOUR JOB: Be extremely critical. Do not just agree because it was accepted before. Check for edge cases."
+            )
+        else:
+            # Context: Revision
+            context_msg = (
+                "The previous answer was rejected. The author has revised the answer based on feedback.\n"
+                "YOUR JOB: Check if the previous concerns were addressed and if new errors were introduced."
+            )
+
+        prompt = (
+            f"{context_msg}\n\n"
+            f"--- Author's Logic/Rebuttal ---\n{author_logic}\n\n"
+            f"--- Current Answer ---\n{current_answer}\n\n"
+            "Please evaluate this answer."
+        )
+        return {"role": "user", "content": prompt}
 
     def construct_initial_prompt(self, user_query):
         return self.construct_author_prompt(user_query)["content"]
